@@ -76,7 +76,7 @@ Run as `wi <subcommand>` (the plugin's `bin/` is on PATH). Root: `$WI_ROOT`, els
 | Command | Example | Exit |
 |---|---|---|
 | `list [state]` | `wi list backlog` | 0 |
-| `next [--auto]` | `wi next` | 0; `--auto` prefixes each row with `build`, `refine` or `draft`; draft items are skipped |
+| `next [--auto]` | `wi next` | 0; rows `<ID> <state> <P> <type> <size> <title>`; draft items are skipped. `--auto` also skips `auto: no` and prefixes `build` (refined), `refine` (XS/S backlog) or `draft` (M+ backlog) |
 | `inbox` | `wi inbox` | 0; rows `<kind> <id> <state-dir> holds=<n> <title>`, kinds `decision` (blocked), `failed` (needs-attention), `approve` (draft), `refine` (backlog, `auto: no`); most-blocking first |
 | `nextid <E<n>> <F\|B>` | `wi nextid E1 F` prints `E1-F4` | 0; 1 without args |
 | `index` | `wi index` | 0; rewrites `INDEX.md` (with a `## Needs you` section) and the design Work items blocks |

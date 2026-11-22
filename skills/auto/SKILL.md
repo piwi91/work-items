@@ -14,7 +14,7 @@ Never asks the user. Each pass reads state from git, nothing from memory.
 
 ## Pass
 1. `/work-items:sync`, then `/work-items:merge --all`.
-2. `q = wi next --auto`. Each row starts with an action. Take the top row.
+2. `q = wi next --auto`. Rows: `<action> <ID> <state> <P> <type> <size> <title>`. Take the top row.
 
 | Action | Item | Do |
 |---|---|---|

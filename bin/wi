@@ -10,7 +10,7 @@ tracker_root() {
   if [[ -n "${WI_ROOT:-}" ]]; then echo "$WI_ROOT"
   elif [[ -f work-items/EPICS.md ]]; then echo work-items
   elif [[ -f EPICS.md && -d backlog ]]; then echo .
-  else echo "no tracker: set WI_ROOT, or run '/work-items:wi init'" >&2; exit 1
+  else echo "no tracker: set WI_ROOT, or run '/work-items:init'" >&2; exit 1
   fi
 }
 

@@ -39,7 +39,7 @@ repos: [<repo>]           # cockpit mode only, delivery order
 depends_on: []            # item IDs only
 design: <path relative to root, or —>   # optional, must exist
 status: backlog | refined | draft | in-progress | blocked | needs-attention | in-review | completed | dropped
-auto: no                  # optional; keeps the item out of `auto` (sensitive, needs a human refine)
+auto: yes | no            # optional; `no` keeps the item out of `auto` (sensitive, needs a human refine)
 pr: <url>                 # stamped at implement; one per repo
 refined_at: YYYY-MM-DD    # stamped at refine
 completed_at: YYYY-MM-DD  # stamped at completed
@@ -50,7 +50,7 @@ Status per folder: backlog → `backlog`; refined → `refined`, `draft`, `block
 Default sizes: **XS** one file/component, a few lines. **S** one component, tightly scoped, no contract change. **M** non-trivial, or 2 components. **L+** several components, a new contract/API/schema, or a security/isolation change. A WORKFLOW.md rubric replaces this.
 
 ## Pick-up order (`wi next`)
-Deps completed (a dropped dep never counts) → epic `focus: now` first, `later` last → priority → most dependents first → bug before feature → smaller first → ID. Blocked, draft and dropped items are skipped.
+Deps completed (a dropped dep never counts) → epic `focus: now` first, `later` last → priority → most dependents first → bug before feature → smaller first → ID. Blocked, draft and dropped items are skipped. `wi next --auto` also skips `auto: no` and prefixes each row `<action> <ID> <state> <P> <type> <size> <title>` (action `build` = refined, `refine` = XS/S backlog, `draft` = M+ backlog).
 Finish before you start: `sync` → `/work-items:merge --all` → `unblock` → `wi stale` and review or drop what it lists → only then new items. Reviewed and kept → set `last_reviewed` to today; obsolete → `/work-items:backlog drop`.
 
 ## Gates

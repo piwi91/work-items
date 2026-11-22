@@ -244,4 +244,5 @@ new_tracker; mk backlog E1-F1 F P3 S; wi index >/dev/null
 grep -A2 '## Needs you' "$T/r/INDEX.md" | grep -qx 'Nothing.'; check "index Needs you says Nothing. when empty" $?
 wi bogus | grep -qF 'next [--auto] | inbox'; check "usage lists next [--auto] and inbox" $?
 
+empty="$(mktemp -d)"; (cd "$empty" && env -u WI_ROOT bash "$WI" list 2>&1) | grep -qF '/work-items:init'; check "no-tracker error names /work-items:init" $?
 [ $fails -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }
