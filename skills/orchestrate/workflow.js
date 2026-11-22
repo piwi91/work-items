@@ -325,7 +325,7 @@ async function implementUnit(unit, retryContext, iterLabel) {
   // was, usually the most expensive tier. doc-implementer pins sonnet and carries what
   // general-purpose cannot know: there is no red/green cycle here, the unit's test_strategy is the
   // bar, and a claim about code has to be run before it is written.
-  const agentType = unit.is_code ? 'tdd-implementer' : 'doc-implementer'
+  const agentType = unit.is_code ? 'work-items:tdd-implementer' : 'work-items:doc-implementer'
   const schema = unit.is_code ? IMPLEMENT_CODE_SCHEMA : IMPLEMENT_NONCODE_SCHEMA
   const raw = await agent(prompt, { agentType, schema, phase: 'Implement', label: `${runName}/implement:${unit.name}:${iterLabel}` })
   // null = the call died or was skipped — record as blocked, never silently drop the unit.
@@ -362,7 +362,7 @@ async function settleE2E(runs, label) {
       `If it returns because its own timeout hit while the run is still alive, issue the same call again, at most 12 times.\n` +
       `2. Decide the verdict from the run's own log: PASS only if the log shows the run passed; FAIL if any suite failed or the run errored; UNKNOWN otherwise.\n` +
       `3. Name each failing suite in \`failing\`, and put its first failing assertion or error (<=20 lines each, <=3000 chars total) plus the log path in \`evidence\`.`
-    const w = await agent(prompt, { schema: E2E_WAIT_SCHEMA, phase: 'Collect e2e', label: `${runName}/e2e-wait:${label}:${r.run_id}`, agentType: 'verify' }).catch(() => null)
+    const w = await agent(prompt, { schema: E2E_WAIT_SCHEMA, phase: 'Collect e2e', label: `${runName}/e2e-wait:${label}:${r.run_id}`, agentType: 'work-items:verify' }).catch(() => null)
     settled.push(w ? { ...r, ...w } : { ...r, verdict: 'UNKNOWN', evidence: 'e2e verdict collection returned no result' })
   }
   return settled
@@ -406,7 +406,7 @@ if (!units) {
       `Classify this task for the orchestrator pipeline. Task: ${task}\n\n` +
       `Decide: is this security-sensitive (auth, secrets, network policy, access control, PII, crypto, internet-facing — default true if unsure)? ` +
       `Is this small and self-contained enough that the scoping survey can be brief (e.g. confined to one obvious file/location)? It no longer skips that survey — it only sets its depth.`,
-    { agentType: 'classify', schema: CLASSIFY_SCHEMA, phase: 'Classify' }
+    { agentType: 'work-items:classify', schema: CLASSIFY_SCHEMA, phase: 'Classify' }
   )
   if (!classificationRaw) log('Classify call failed — defaulting to security_sensitive=true, small_task=false (fail closed, not fail silent).')
   classification = classificationRaw ?? { security_sensitive: true, small_task: false }
@@ -423,7 +423,7 @@ if (!units) {
           ? `This task was triaged as small and self-contained — keep the survey short: the files it touches, the conventions binding them, nothing more.\n\n`
           : '') +
         `Report what is relevant and where. Do not raise questions or decide anything — Plan does that.`,
-      { agentType: 'understand', schema: UNDERSTAND_SCHEMA, phase: 'Understand', label: `${runName}/understand` }
+      { agentType: 'work-items:understand', schema: UNDERSTAND_SCHEMA, phase: 'Understand', label: `${runName}/understand` }
     )
     scoping = scopingResult ? scopingResult.context : ''
   }
@@ -439,7 +439,7 @@ if (!units) {
       `surface), repo (only if this task spans more than one repository — omit otherwise), ordered steps, files touched, and a test strategy.\n\n` +
       `This runs unattended — nothing downstream can ask the user anything. A question you raise in open_questions stops the run for a human answer, ` +
       `so raise only a real one. Units run one at a time, sequentially, and are grouped for execution by file overlap, so keep \`files\` accurate.`,
-    { agentType: 'plan', schema: PLAN_SCHEMA, phase: 'Plan', label: `${runName}/plan` }
+    { agentType: 'work-items:plan', schema: PLAN_SCHEMA, phase: 'Plan', label: `${runName}/plan` }
   )
   if (!planResultRaw) log('Plan call failed — no units returned.')
   // Drop out before any worktree exists or anything is built: the whole point is to stop cheap.
@@ -522,7 +522,7 @@ for (const unit of ciFailure ? [] : units) {
           `Check whether the implementation satisfies this unit's stated requirement — independent of whether its own test passes, that was already ` +
           `established by the red/green cycle. Look for the actual behavior the requirement describes, not just that some test is green.\n` +
           `Steps: ${JSON.stringify(unit.steps)}\nFiles changed: ${JSON.stringify(impl.files_changed)}\nClaimed evidence: ${impl.green_evidence || ''}`,
-        { agentType: 'requirements-check', schema: REQUIREMENTS_CHECK_SCHEMA, phase: 'Validate', label: `${runName}/validate:${unit.name}:iter${attempt}` }
+        { agentType: 'work-items:requirements-check', schema: REQUIREMENTS_CHECK_SCHEMA, phase: 'Validate', label: `${runName}/validate:${unit.name}:iter${attempt}` }
       )
       if (!req || !req.satisfied) {
         findings = `Requirements not met: ${req?.gap || (req ? 'no gap description given' : 'requirements check returned no result — treating as unmet')}`
@@ -539,7 +539,7 @@ for (const unit of ciFailure ? [] : units) {
                 ? `Read the change with \`git diff ${baseRef}...HEAD -- ${impl.files_changed.join(' ')}\` in ${workdir} (plus \`git status --porcelain\` for anything uncommitted).`
                 : `The implementer reported NO changed files — review the whole branch and say so if it is empty: \`git diff ${baseRef}...HEAD\` in ${workdir} (plus \`git status --porcelain\`).`
               : ''),
-          { agentType: 'security-review', schema: SECURITY_REVIEW_SCHEMA, phase: 'Security Review', label: `${runName}/security:${unit.name}:iter${attempt}` }
+          { agentType: 'work-items:security-review', schema: SECURITY_REVIEW_SCHEMA, phase: 'Security Review', label: `${runName}/security:${unit.name}:iter${attempt}` }
         )
         const confirmed = sec ? sec.confirmed : [{ description: 'security review call failed to return a result — treating as unresolved', severity: 'unknown' }]
         if (confirmed.length > 0) {
@@ -598,7 +598,7 @@ if (committedUnits.length > 0) {
         `Report head_sha (\`git rev-parse HEAD\` at the start). ` +
         `Report every long e2e run in e2e_runs (run_id, wait_command, scope, verdict, failing suite names, a short log excerpt of each failure) — not as a separate check. ` +
         `An e2e run still going when you must stop is verdict PENDING: set all_passed from the checks you did finish, and the orchestrator collects the rest.`,
-      { agentType: 'verify', schema: VERIFY_SCHEMA, phase: 'Full Verify', label: `${runName}/full-verify:round${round}` }
+      { agentType: 'work-items:verify', schema: VERIFY_SCHEMA, phase: 'Full Verify', label: `${runName}/full-verify:round${round}` }
     )
     if (!result) return { checks: [{ command: 'verify agent call', result: 'no result returned', passed: false }], all_passed: false, skipped: false }
     // A verify that could not wait out its e2e run said PENDING; the verdict is collected here and
@@ -666,7 +666,7 @@ if (branch) {
       `${item && item.id ? ` and referencing ${item.id}` : ''} (an implementer left it behind; do not judge whether it should exist). ` +
       `3. Report head_sha (\`git rev-parse HEAD\` after any commit), the tree state and the commit subjects on ${branch} since ${baseRef} (\`git log --oneline ${baseRef}..HEAD\`).\n` +
       `Never push, never rebase, never amend a commit that is already there, never checkout another branch.`,
-    { agentType: 'commit-sweep', schema: { type: 'object', properties: { tree_clean: { type: 'boolean' }, commits: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' }, head_sha: { type: 'string' } }, required: ['tree_clean', 'commits'] }, phase: 'Commit', label: `${runName}/commit-sweep` }
+    { agentType: 'work-items:commit-sweep', schema: { type: 'object', properties: { tree_clean: { type: 'boolean' }, commits: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' }, head_sha: { type: 'string' } }, required: ['tree_clean', 'commits'] }, phase: 'Commit', label: `${runName}/commit-sweep` }
   )
   commitOutcome = sweep
     ? { ...sweep, skipped: false }

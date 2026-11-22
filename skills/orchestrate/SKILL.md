@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Run tasks or tracked work items through a fixed pipeline. Preflight in the session (readiness gate, open questions answered up front), a scoping Workflow call (Classify, Understand, Plan, no worktree), a branch per repo cluster, then one background Workflow per cluster that runs each unit as implement, validate, security review (conditional), with retry then escalation, one full-suite Verify, and a commit sweep. Postflight pushes, opens PRs and updates the tracker. Never reports a false pass. With `--autonomous` it never asks the user and merges when the Stage 4 gate passes. Use when asked to orchestrate a task, or by `/wi implement`.
+description: Run tasks or tracked work items through a fixed pipeline. Preflight in the session (readiness gate, open questions answered up front), a scoping Workflow call (Classify, Understand, Plan, no worktree), a branch per repo cluster, then one background Workflow per cluster that runs each unit as implement, validate, security review (conditional), with retry then escalation, one full-suite Verify, and a commit sweep. Postflight pushes, opens PRs and updates the tracker. Never reports a false pass. With `--autonomous` it never asks the user and merges when the Stage 4 gate passes. Use when asked to orchestrate a task, or by `/work-items:wi implement`.
 ---
 
 # Orchestrator
@@ -8,7 +8,7 @@ description: Run tasks or tracked work items through a fixed pipeline. Preflight
 ## Stage 0 — Project override
 If the target repo has `.claude/orchestrate/SKILL.md`, read it and follow it instead of this file.
 
-This repo ships this skill. A personal copy at `~/.claude/skills/orchestrate` (or `~/.claude/skills/wi`) shadows the project copy. Remove the personal copy.
+Old personal copies `~/.claude/skills/{wi,orchestrate}` and old project copies `.claude/skills/{wi,orchestrate}` are obsolete. Remove them (`/work-items:wi upgrade` removes the project copies).
 
 | Stage | Where | Why there |
 |---|---|---|
@@ -43,7 +43,7 @@ Never call `AskUserQuestion`. Each ask below takes its default, written into the
 | 1c-bis `needs-answers` | take each recommendation; none on a question → skip the item |
 | answers needed later (escalation) | park the PR (Stage 4 step P) |
 
-**Standing authorization** for the PRs this run opened: `git push` of the run's branch, `gh pr create`, `gh pr merge --merge --delete-branch` once the gate passes, closing PRs that merge subsumed. Nothing else: never push a default branch, never force-push, never merge a PR this run did not open (except via `/wi merge`, see `wi/merge.md`).
+**Standing authorization** for the PRs this run opened: `git push` of the run's branch, `gh pr create`, `gh pr merge --merge --delete-branch` once the gate passes, closing PRs that merge subsumed. Nothing else: never push a default branch, never force-push, never merge a PR this run did not open (except via `/work-items:wi merge`, see `wi/merge.md`).
 
 ### 1b. Readiness gate (per item)
 Read the spec yourself; no agent call.
@@ -109,28 +109,28 @@ A bare string task with no scoping call is accepted: plan and run in one call, f
 ## Stage 2 — Pipeline (`workflow.js`)
 
 ### Scoping mode (no `units`)
-1. **Classify** (`classify`): `security_sensitive`, `small_task`.
-2. **Understand** (`understand`): always runs; `small_task` only sets depth. Returns `context`, never questions.
-3. **Plan** (`plan`): the one phase that may raise `open_questions`; non-empty ends the call with `needs-answers`. Decomposes into units that stand alone.
+1. **Classify** (`work-items:classify`): `security_sensitive`, `small_task`.
+2. **Understand** (`work-items:understand`): always runs; `small_task` only sets depth. Returns `context`, never questions.
+3. **Plan** (`work-items:plan`): the one phase that may raise `open_questions`; non-empty ends the call with `needs-answers`. Decomposes into units that stand alone.
 
 With `planOnly: true` it returns here without touching git.
 
 ### Execution mode
 Units run sequentially, each in a loop capped at `MAX_UNIT_ITERATIONS = 3`:
 
-4. **Implement**: `tdd-implementer` for code, `doc-implementer` for non-code. `red_observed` is required and enforced: a `green` claim with `red_observed: false` becomes `blocked`. Commits its own files when a branch exists.
-4b. **Collect e2e**: agents never wait on a long run with `run_in_background` (it ends the turn before the verdict). They block in the foreground in calls of at most 9 minutes, attach to an existing run for the same tree, and run only touched scenarios. A run still going is reported in `e2e_runs` as `PENDING` with its `wait_command`; the script hands it to a `verify` call for the real verdict. A run may declare `expected: FAIL` for a deliberate negative proof. A PASS on a `blocked_only_on_e2e` unit makes it green; any other verdict becomes the blocker.
-5. **Validate** (`requirements-check`): does the change satisfy this unit's requirement, independent of its own test? Skipped for a blocked unit.
-6. **Security Review** (`security-review`, only if `security_sensitive`, only after Validate passes): reads the diff and confirms or dismisses.
+4. **Implement**: `work-items:tdd-implementer` for code, `work-items:doc-implementer` for non-code. `red_observed` is required and enforced: a `green` claim with `red_observed: false` becomes `blocked`. Commits its own files when a branch exists.
+4b. **Collect e2e**: agents never wait on a long run with `run_in_background` (it ends the turn before the verdict). They block in the foreground in calls of at most 9 minutes, attach to an existing run for the same tree, and run only touched scenarios. A run still going is reported in `e2e_runs` as `PENDING` with its `wait_command`; the script hands it to a `work-items:verify` call for the real verdict. A run may declare `expected: FAIL` for a deliberate negative proof. A PASS on a `blocked_only_on_e2e` unit makes it green; any other verdict becomes the blocker.
+5. **Validate** (`work-items:requirements-check`): does the change satisfy this unit's requirement, independent of its own test? Skipped for a blocked unit.
+6. **Security Review** (`work-items:security-review`, only if `security_sensitive`, only after Validate passes): reads the diff and confirms or dismisses.
 
 Any finding (blocked, unmet requirement, confirmed security issue) retries the unit with the finding as context. At the cap it escalates to a human with the last finding. Nothing but a passing gate marks a unit resolved.
 
-7. **Full Verify**: once, after every unit is committed or escalated. One `verify` call over the whole branch (`git diff <baseRef>...HEAD`, or `git diff HEAD` without a branch). It runs the project's full lint and test suite, not just the changed files. It is never skipped, and a verify that did not run is not a pass.
+7. **Full Verify**: once, after every unit is committed or escalated. One `work-items:verify` call over the whole branch (`git diff <baseRef>...HEAD`, or `git diff HEAD` without a branch). It runs the project's full lint and test suite, not just the changed files. It is never skipped, and a verify that did not run is not a pass.
    - On failure, up to `MAX_REPAIR_ROUNDS = 2`: failing checks go to the unit owning the implicated file (unattributed: every committed unit), which gets one more implement pass, then Verify re-runs failures first and the full suite only once they pass.
-8. **Commit** (branch only): `commit-sweep` commits leftovers and reports tree state and commits. Runs regardless of outcome.
+8. **Commit** (branch only): `work-items:commit-sweep` commits leftovers and reports tree state and commits. Runs regardless of outcome.
 9. **Report**: `resolved = no escalations, verification passed, every unit committed`. Pure data assembly, no agent call.
 
-Every `agent()` call is null-checked and fails closed: a failed `classify` means security-sensitive; a failed review or check is unresolved, not clean; a failed Verify is `all_passed: false`; a failed sweep means a dirty tree.
+Every `agent()` call is null-checked and fails closed: a failed `work-items:classify` means security-sensitive; a failed review or check is unresolved, not clean; a failed Verify is `all_passed: false`; a failed sweep means a dirty tree.
 
 `ledger`: per unit, attempts, resolved, findings. `escalations`: `[{task, reason, findings}]`, the decisions a human owes the run; postflight shows them verbatim.
 
@@ -145,7 +145,7 @@ Every `agent()` call is null-checked and fails closed: a failed `classify` means
    - Merging is Stage 4, only for `resolved: true` with `--autonomous`.
    - Put `Verified-sha: <verified_sha>` on its own line (omit when null).
 4. Multi-repo cross-sync: once every cluster of an item has a PR, diff each branch against its `baseRef` and check every identifier one cluster assumed of another (field name, enum value, endpoint shape) against what the sibling shipped, literally. A mismatch blocks `ready-to-merge` on every affected PR. A dependent PR says "Depends on: <url>" and stays off `ready-to-merge` until that PR merges.
-5. Tracker bookkeeping (the tracker's own rules win; for `/wi` see implement.md step 5): stamp `pr:`; resolved → summary and move to `in-review/`; escalated or unresolved → stay `in-progress/` with `blocked` or `needs-attention`.
+5. Tracker bookkeeping (the tracker's own rules win; for `/work-items:wi` see implement.md step 5): stamp `pr:`; resolved → summary and move to `in-review/`; escalated or unresolved → stay `in-progress/` with `blocked` or `needs-attention`.
 6. Cleanup: on a resolved cluster remove the worktree once pushed and the PR is open, and tear down test infrastructure (1e-bis) unless Stage 4 needs it. On an escalated cluster keep both and say where.
 7. Report one line per item: resolved, escalated (with the decision it waits on), or unresolved, plus PR link and label. Never summarize an escalated or unresolved run as done.
 
@@ -165,7 +165,7 @@ Steps:
 3. Base moved: merge `origin/<base>` into the branch. Resolve only mechanical conflicts; anything else: park. Re-run the touched checks, push, update `Verified-sha`, back to 1. Max 2 syncs.
 4. Merge: `gh pr merge <n> --merge --delete-branch`. Use `--merge`, not `--squash`: subsumed-PR detection needs branch ancestry. Retarget a stacked child to the default branch before its base branch is deleted, or GitHub closes it for good.
 5. Subsumed PRs: for every other open PR, `git merge-base --is-ancestor <its-head> <merged-head>`. An ancestor is subsumed: confirm the default branch is a strict superset, comment with the merge commit, `gh pr close --delete-branch`, promote its item.
-6. Tracker: run `/wi sync` (moves merged items to `completed/` with the summary updated).
+6. Tracker: run `/work-items:wi sync` (moves merged items to `completed/` with the summary updated).
 7. Post-merge check: re-run the project's checks on the updated default branch. Red: comment on the merged PR with the signature and report it. Never revert automatically.
 8. Cleanup as in Stage 3 step 6.
 
@@ -178,11 +178,11 @@ When the session must wait on something it cannot block on (busy shared infrastr
 
 Never schedule a timer when blocked on a human (`needs-answers` outside `--autonomous`, a pending question, an escalation, a parked PR): report `needs input:` and stop. Cancel the timer (`stop: true`) when the run finishes or becomes human-blocked.
 
-Models come from each agent's frontmatter in `.claude/agents/`, not from the script.
+Models come from each agent's frontmatter in the plugin's `agents/`, not from the script.
 
 ## Extension points
 - **Full override**: `.claude/orchestrate/SKILL.md` plus its own `workflow.js`. Stage 0 hands over.
-- **Swap an agent**: define an agent with the same name (`classify`, `understand`, `plan`, `tdd-implementer`, `doc-implementer`, `requirements-check`, `security-review`, `verify`, `commit-sweep`) in the project's `.claude/agents/`. Same role, project detail. `workflow.js` dispatches by `agentType`.
+- **Swap an agent**: not possible by name; `work-items:<name>` always resolves to the plugin's agent. Steer behaviour through WORKFLOW.md or `.claude/orchestrate/SKILL.md`. To change a model or prompt, fork the plugin.
 - **Insert or reorder phases**: copy `workflow.js` into the project and edit; there is no parent-script call.
 - **A project's copy must keep**: Classify, Full Verify, the Plan open-questions drop-out, the `escalations` and `resolved: false` report, and "only a passing gate marks anything resolved". It may add checks. It may not make these depend on requester self-declaration.
 - **Retry caps**: `MAX_UNIT_ITERATIONS` and `MAX_REPAIR_ROUNDS` are constants at the top of the execution section. User-only: a capped run goes back to the user; never raise them yourself.

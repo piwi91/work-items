@@ -1,0 +1,11 @@
+{
+  "name": "work-items",
+  "owner": { "name": "Pim Widdershoven" },
+  "plugins": [
+    {
+      "name": "work-items",
+      "source": "./",
+      "description": "Markdown work-item tracker for git, with orchestrate pipeline and agents."
+    }
+  ]
+}
