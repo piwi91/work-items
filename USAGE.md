@@ -8,7 +8,7 @@ Loop: design → backlog → refine → implement → merge → sync.
 | Mode | Setup |
 |---|---|
 | cockpit | This repo is the tracker. Code lives in other repos listed in WORKFLOW.md `## Repos`. Use the template or clone it. |
-| in-repo | Copy `.claude/skills/wi`, `.claude/skills/orchestrate` and `.claude/agents` into the project. Run `/wi init`, or copy the skeleton (`EPICS.md`, `DECISIONS.md`, state dirs, `design/`) under `work-items/`. |
+| in-repo | Copy `.claude/skills/wi`, `.claude/skills/orchestrate` and `.claude/agents` into the project. Run `/wi init`, or copy the skeleton (`EPICS.md`, `DECISIONS.md`, `INDEX.md`, state dirs, `design/`) under `work-items/`. |
 
 Both modes:
 1. Remove or rename `~/.claude/skills/wi` and `~/.claude/skills/orchestrate`. A personal skill shadows the project skill.
@@ -36,7 +36,7 @@ Fill `WORKFLOW.md` (copy of `.claude/skills/wi/workflow-template.md`):
 ## 4. Daily loop
 | Command | When | Writes | Asks user |
 |---|---|---|---|
-| `/wi init` | New tracker | root, `EPICS.md`, `DECISIONS.md`, state dirs, `WORKFLOW.md` | yes |
+| `/wi init` | New tracker | root, `EPICS.md`, `DECISIONS.md`, `INDEX.md`, state dirs, `WORKFLOW.md` | yes |
 | `/wi design <subject>` | Cross-cutting choice | `design/<slug>.md`, `DECISIONS.md` row | yes |
 | `/wi backlog` or `backlog list` | See open intent | nothing | no |
 | `/wi backlog epic <title>` | New epic | `EPICS.md` | only if no rationale |
@@ -60,7 +60,8 @@ Run as `bash .claude/skills/wi/wi.sh <cmd>`. Root: `$WI_ROOT`, else `work-items/
 | `list [state]` | `wi.sh list backlog` | 0 |
 | `next` | `wi.sh next` | 0 |
 | `nextid <E<n>> <F\|B>` | `wi.sh nextid E1 F` prints `E1-F4` | 0; 1 without args |
-| `validate` | `wi.sh validate` prints `ok` | 0 ok; 1 with problems listed, or with no output when `EPICS.md` has no epic yet |
+| `index` | `wi.sh index` | 0; rewrites `INDEX.md` and the design Work items blocks |
+| `validate` | `wi.sh validate` prints `ok` | 0 ok; 1 with problems listed, `stale: run wi.sh index` when generated files are out of date |
 | `stale [days]` | `wi.sh stale 30` (default 60) | 0 |
 
 An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
@@ -68,7 +69,7 @@ An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
 ## 6. Rules
 - The folder is the truth. `status:` must fit the folder.
 - IDs come from `nextid`. Never reuse or renumber.
-- Run `wi.sh validate` before every tracker commit.
+- `INDEX.md` and the design Work items blocks are generated, never hand-edit them. Run `wi.sh index && wi.sh validate` before every tracker commit.
 - Decisions go only in `DECISIONS.md` plus the design. A changed decision is a new row with `Supersedes`.
 - Drop an item instead of leaving it stale.
 - Never `git add -A`. Use pathspecs.
@@ -88,7 +89,7 @@ An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
    2. File: `backlog/<lower-id>-<kebab-title>.md`, for example `backlog/e1-f4-add-login.md`.
    3. Frontmatter: `id`, `title`, `epic` (`E1 — <title>`), `type` (`F` or `B`), `priority` (`P1`..`P5`), `size` (`XS`..`XXL`), `depends_on: []`, `status: backlog`, `last_reviewed` (today). Then `# <ID> — <Title>` and one or two sentences of what and why.
    4. Move between states with `git mv`. Set `status:` to fit the new folder.
-   5. `wi.sh validate`, then `git add <paths>` and `git commit <paths>`. Never `git add -A`.
+   5. `wi.sh index && wi.sh validate`, then `git add <paths>` and `git commit <paths>`. Never `git add -A`.
 5. Blocked or ambiguous: set `status: blocked`, add `## Open decisions` with the question, options and a recommendation. Never guess.
 
 ## 8. Customise

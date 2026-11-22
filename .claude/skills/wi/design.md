@@ -13,8 +13,8 @@ A design holds cross-cutting architecture and implies several backlog items. Con
 5. **Draft** to the template below. Cover options with real reasons, contracts, security at every layer that applies, and migration or rollout when it is not greenfield. Add a diagram where structure or ordering matters.
 6. **Self-challenge**: list unverified assumptions (`VALIDATE`), security gaps, failure modes, scope leaks. Dispatch `architect` to red-team the draft; add `security-review` when it touches trust, identity, secrets, tenancy or network. Fix what you can, surface the rest as open questions.
 7. **Preview**: print the full doc as one code block, then ask approve / revise / re-frame. Write nothing before approval.
-8. **Write** `design/<slug>.md` with `status: draft`. Accepted at once: set `status: accepted` and add one row to `DECISIONS.md` in the same commit. Offer `/wi backlog` for each implied item and fill the Work items table. Supersede: set the prior doc `status: superseded`, `superseded-by: <slug>`, and add the new `DECISIONS.md` row with `Supersedes`. `wi.sh validate`, commit.
-9. Tell the user: `/wi refine <item>` picks these up, reads this design and stamps `design: design/<slug>.md`. When every row is completed, set `status: implemented`.
+8. **Write** `design/<slug>.md` with `status: draft`. Accepted at once: set `status: accepted` and add one row to `DECISIONS.md` in the same commit. Offer `/wi backlog` for each implied item. Supersede: set the prior doc `status: superseded`, `superseded-by: <slug>`, and add the new `DECISIONS.md` row with `Supersedes`. `wi.sh index && wi.sh validate`, commit.
+9. Tell the user: `/wi refine <item>` picks these up, reads this design and stamps `design: design/<slug>.md`. When every item is completed, set `status: implemented`.
 
 ```markdown
 ---
@@ -39,8 +39,8 @@ superseded-by: <slug or —>
 ## Open questions
 - [ ] <question> VALIDATE: <how to confirm>
 ## Work items
-| ID | Title | State |
-|---|---|---|
+<!-- wi:items -->
+<!-- /wi:items -->
 ## Decision record
 - <YYYY-MM-DD> <what was decided or changed, and why>
 ```

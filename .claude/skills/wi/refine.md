@@ -30,6 +30,6 @@ Turn one backlog item into a ready spec. Interactive. No implementation.
     ## Tasks                (- [ ] items)
     ```
 11. **Design upkeep**: a decision that contradicts the `design:` doc or a `DECISIONS.md` row is a new decision: add a row with `Supersedes`, and amend the design (body states the current shape; a dated `## Decision record` entry at the foot says what changed and why), in the same commit.
-12. `wi.sh validate`, commit, then tell the user: `/wi implement <slug>`.
+12. `wi.sh index && wi.sh validate`, commit, then tell the user: `/wi implement <slug>`.
 
 **Auto-refine** (used by `implement --autonomous` for an XS/S backlog item outside the sensitive areas): dispatch `fable-refiner`. It returns the spec, or blocked with open decisions (options + recommendation); the caller writes the file. Blocked → `status: blocked` + `## Open decisions` → `/wi unblock`.
