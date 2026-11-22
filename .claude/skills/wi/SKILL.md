@@ -1,0 +1,87 @@
+---
+name: wi
+description: Work-item loop, tracked as markdown files in git. design → backlog → refine → implement → review → completed. Verbs: init, design, backlog, next, refine, implement, merge, unblock, sync.
+argument-hint: "init | design <subject|item> [| supersede <slug>] | backlog [list | epic <title> | feature|bug <epic> <title> | drop <item> <reason>] | next | refine <item> | implement <item>... [--autonomous] | merge [prs|items] | --all | unblock [item] | sync"
+disable-model-invocation: true
+allowed-tools: Read, Edit, Write, Glob, Grep, Bash, Agent, AskUserQuestion, Skill
+---
+
+# /wi — work-item loop
+
+Args: `$ARGUMENTS`. First word = verb. Helper: `${CLAUDE_SKILL_DIR}/wi.sh` (`list [state] | next | nextid <E<n>> <F|B> | validate | stale [days]`).
+
+## Precedence
+1. The tracker's `WORKFLOW.md` overrides any default below: sizes, categories, sensitive areas, target repos, commit and worktree policy. Test and docs details live in the code repo's CLAUDE.md `## Testing` / `## Docs`, which every agent reads.
+2. Then this file.
+
+## Tracker
+Root = `$WI_ROOT`, else `./work-items/` (in-repo mode), else `.` if `EPICS.md` + `backlog/` sit at the repo root (cockpit mode: the tracker is its own repo, code lives in target repos added via `--add-dir`).
+
+```
+<root>/
+  WORKFLOW.md   project overlay (optional)
+  EPICS.md      ## E<n> — <title> / _<rationale>_ / optional `focus: now|later`
+  DECISIONS.md  append-only decision log
+  design/       one <slug>.md per design
+  backlog/ refined/ in-progress/ in-review/ completed/   one <slug>.md per item
+```
+- An item lives in exactly one state dir. The folder is the truth. A state change is a `git mv`, and `status:` must fit the folder (`wi.sh validate` checks it).
+- IDs: `E<n>-F<m>` (feature), `E<n>-B<m>` (bug). Next free number: `wi.sh nextid E<n> F`. Never reuse or renumber. Gaps are fine. On a push collision, renumber the newer item (file, `id:`, `depends_on` refs).
+- Slug = `<lower-id>-<kebab-title>`.
+- No generated index files. `wi.sh list|next` reads frontmatter live.
+- Run `wi.sh validate` before every tracker commit.
+
+## Decisions
+`DECISIONS.md` is the one place a decision is recorded: `| ID | Date | Decision | Design | Supersedes |`, IDs `D1`, `D2`, ... The design holds the why; the row holds the what. A changed decision is a new row with `Supersedes`, never an edit. `design` and `refine` read it before proposing. A decision made in an item, a handoff or chat is not a decision until it is a row here.
+
+## Frontmatter
+```yaml
+id: E1-F3
+title: <Title>
+epic: E1 — <Epic title>
+type: F | B
+priority: P1..P5          # missing = P3
+size: XS | S | M | L | XL | XXL   # borderline → larger
+category: <one label>     # optional; set from WORKFLOW.md if it defines any
+repos: [<repo>]           # cockpit mode only, delivery order
+depends_on: []            # item IDs only
+design: <path relative to root, or —>   # optional, must exist
+status: backlog | refined | in-progress | blocked | needs-attention | in-review | completed | dropped
+pr: <url>                 # stamped at implement; one per repo
+refined_at: YYYY-MM-DD    # stamped at refine
+completed_at: YYYY-MM-DD  # stamped at completed
+last_reviewed: YYYY-MM-DD
+```
+Status per folder: backlog → `backlog`; refined → `refined`, `blocked`; in-progress → `in-progress`, `blocked`, `needs-attention`; in-review → `in-review`, `needs-attention`; completed → `completed`, `dropped`.
+
+Default sizes: **XS** one file/component, a few lines. **S** one component, tightly scoped, no contract change. **M** non-trivial, or 2 components. **L+** several components, a new contract/API/schema, or a security/isolation change. A WORKFLOW.md rubric replaces this.
+
+## Pick-up order (`wi.sh next`)
+Deps completed (a dropped dep never counts) → epic `focus: now` first, `later` last → priority → most dependents first → bug before feature → smaller first → ID. Blocked and dropped items are skipped.
+Finish before you start: `sync` → `/wi merge --all` → `unblock` → `wi.sh stale` and review or drop what it lists → only then new items. Reviewed and kept → set `last_reviewed` to today; obsolete → `/wi backlog drop`.
+
+## Gates
+- **Ready**: user story + observable acceptance criteria (AC) + tasks. Exception: an XS/S backlog item with clear AC, one obvious location, no new contract and nothing security-sensitive.
+- **Done**: every AC verified. A testable change has a green test. A non-testable change (refactor, rename, docs) passes lint + review + an equivalence check, never a hollow test. Summary written, PR open, `pr:` stamped.
+- **Completed**: the PR is merged (or the item is dropped). Only `sync`, a merge step or `backlog drop` moves an item to `completed/`.
+- **Summary on every move**: moving an item to `in-review/` or `completed/` writes `## Summary of changes` into the item, in the same commit as the move. Format: functional changes · technical changes (files/components) · verification · deviations from the spec · PR link(s). No summary, no move. A dropped item gets `## Dropped` instead.
+- AC text decides any test-vs-implementation conflict. An ambiguous AC → `status: blocked` + `## Open decisions`, never a guess.
+
+## Git
+- **Tracker commits**: default is straight to the default branch (pull/rebase first; explicit pathspecs, never `git add -A`). WORKFLOW.md may say `tracker-commits: branch`; then tracker edits ride the item's PR, and `sync` opens a small PR.
+- **Code**: branch `claude/<slug>-<4char>` → PR, one per repo. Stacked PRs for in-run deps. Worktree or in place: WORKFLOW.md `worktree: yes|no`, else ask before starting.
+
+## Verbs
+| Verb | Procedure |
+|---|---|
+| `init` | Create the tracker root, `EPICS.md`, `DECISIONS.md`, the state dirs and `design/` (`.gitkeep`), and a `WORKFLOW.md` from [workflow-template.md](workflow-template.md). Ask: in-repo or cockpit, commit policy, worktree yes/no. Offer to add to the project's CLAUDE.md the line `Work items: tracked in work-items/ with /wi (see work-items/WORKFLOW.md).` and, when missing, `## Testing` (tiers, commands, paths, gotchas) and `## Docs` (doc locations, changelog, agent guidance) filled from the repo. Commit. |
+| `design <subject>` | [design.md](design.md) |
+| `backlog` | [backlog.md](backlog.md) |
+| `next` | Run `wi.sh next`, print the top 10. No edits. |
+| `refine <item>` | [refine.md](refine.md) |
+| `implement <items> [--autonomous]` | [implement.md](implement.md) |
+| `merge [prs\|items] \| --all` | [merge.md](merge.md) |
+| `unblock [items]` | [unblock.md](unblock.md) |
+| `sync` | [sync.md](sync.md) |
+
+Resolve an item argument by exact ID → slug → fuzzy title. If several match, ask.
