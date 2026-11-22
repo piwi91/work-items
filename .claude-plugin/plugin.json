@@ -1,5 +1,7 @@
 {
   "name": "work-items",
-  "version": "0.2.0",
+  "version": "0.2.1",
+  "author": { "name": "Pim Widdershoven" },
+  "license": "MIT",
   "description": "Markdown work-item tracker for git: design, backlog, refine, implement, merge. Includes the orchestrate pipeline and 12 agents."
 }

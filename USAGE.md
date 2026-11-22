@@ -115,3 +115,6 @@ An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
 
 ## 9. Test the plugin
 `bash tests/test-wi.sh` prints `all passed`.
+
+## Develop
+Run `bash tests/test-wi.sh`. On every change, bump the version in `.claude-plugin/plugin.json` and `skills/wi/skeleton/WORKFLOW.md`, and add to CHANGELOG.md.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+- Added MIT licence and author.
+- Shorter README.
+- CLAUDE.md folded into USAGE.md (`## Develop`).
+
 ## 0.2.0
 - Packaged as a Claude Code plugin and marketplace (`work-items`).
 - `wi` is on PATH via `bin/`.

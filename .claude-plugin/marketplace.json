@@ -1,5 +1,6 @@
 {
   "name": "work-items",
+  "description": "Markdown work-item tracker for git, with an orchestrate pipeline and agents.",
   "owner": { "name": "Pim Widdershoven" },
   "plugins": [
     {
