@@ -177,4 +177,71 @@ new_tracker; printf '# Epics\n' > "$T/r/EPICS.md"
 [ "$(wi validate)" = ok ]; check "empty tracker validates ok" $?
 wi list >/dev/null && wi next >/dev/null; check "empty tracker list and next exit 0" $?
 
+# setfield <dir> <id> <key> <value>: replace the frontmatter line or add it
+setfield() {
+  local f="$T/r/$1/$(echo "$2" | tr 'A-Z' 'a-z')-x.md"
+  awk -v k="$3" -v v="$4" 'NR == 1 { print; next } /^---$/ && !done { if (!set) print k ": " v; done = 1 } !done && index($0, k ":") == 1 { print k ": " v; set = 1; next } { print }' "$f" > "$f.new" && mv "$f.new" "$f"
+}
+
+new_tracker
+mk refined E1-F1 F P3 S
+mk backlog E1-F2 F P3 S
+mk backlog E1-F3 F P3 XS
+mk backlog E1-F4 F P3 M
+mk backlog E1-F5 F P3 XL
+mk backlog E1-F6 F P3 ""
+mk backlog E1-F7 F P3 S; setfield backlog E1-F7 auto no
+mk refined E1-F8 F P3 S; setfield refined E1-F8 status draft
+mk refined E1-F9 F P3 S; setfield refined E1-F9 auto no
+actions="$(wi next --auto | awk '{print $1 ":" $2}' | sort | tr '\n' ' ')"
+[ "$actions" = "build:E1-F1 draft:E1-F4 draft:E1-F5 draft:E1-F6 refine:E1-F2 refine:E1-F3 " ]; check "next --auto: build refined, refine XS/S, draft M+ and missing size, skip auto: no and draft" $?
+[ "$(wi next --auto | sed 's/^[a-z]* *//')" = "$(wi next | grep -vwE 'E1-F7|E1-F9')" ]; check "next --auto rows match next rows after the action column" $?
+wi next | grep -qw E1-F8; [ $? -ne 0 ]; check "next skips draft items" $?
+wi next | grep -qw E1-F7; check "next without --auto still lists auto: no items" $?
+
+new_tracker; mk backlog E1-F1 F P3 S; setfield backlog E1-F1 status draft
+validate_fails_with "draft in backlog fails" "status draft does not fit folder backlog"
+new_tracker; mk in-progress E1-F1 F P3 S; setfield in-progress E1-F1 status draft
+validate_fails_with "draft in in-progress fails" "status draft does not fit folder in-progress"
+new_tracker; mk refined E1-F1 F P3 S; setfield refined E1-F1 status draft; wi index >/dev/null
+wi validate | grep -qx ok; check "draft in refined validates" $?
+new_tracker; mk backlog E1-F1 F P3 S; setfield backlog E1-F1 auto maybe
+validate_fails_with "auto other than yes/no fails" "bad auto maybe"
+new_tracker; mk backlog E1-F1 F P3 S; setfield backlog E1-F1 auto no; mk backlog E1-F2 F P3 S; setfield backlog E1-F2 auto yes; wi index >/dev/null
+wi validate | grep -qx ok; check "auto yes and no validate" $?
+
+inbox_tracker() {
+  new_tracker
+  mk refined E1-F1 F P3 S; setfield refined E1-F1 status blocked
+  mk in-progress E1-F2 F P3 S; setfield in-progress E1-F2 status needs-attention
+  mk refined E1-F3 F P3 S; setfield refined E1-F3 status draft
+  mk backlog E1-F4 F P3 S; setfield backlog E1-F4 auto no
+  mk backlog E1-F5 F P3 S
+  mk backlog E1-F6 F P3 S E1-F1
+  mk backlog E1-F7 F P3 S E1-F6
+  mk completed E1-F8 F P3 S E1-F1; setfield completed E1-F8 status completed
+  mk backlog E1-F9 F P3 S E1-F3
+  mk backlog E1-F10 F P3 S; setfield backlog E1-F10 auto no
+}
+inbox_tracker
+expected="decision E1-F1 refined holds=2 T E1-F1
+approve E1-F3 refined holds=1 T E1-F3
+failed E1-F2 in-progress holds=0 T E1-F2
+refine E1-F4 backlog holds=0 T E1-F4
+refine E1-F10 backlog holds=0 T E1-F10"
+[ "$(wi inbox)" = "$expected" ]; check "inbox: kinds, transitive holds, holds desc then numeric id" $?
+
+new_tracker; mk backlog E1-F1 F P3 S
+out="$(wi inbox)"; rc=$?
+[ $rc -eq 0 ] && [ -z "$out" ]; check "empty inbox prints nothing, exit 0" $?
+
+inbox_tracker; wi index >/dev/null; idx="$T/r/INDEX.md"
+{ grep -qF '## Needs you' "$idx" && grep -qF '| Kind | Item | Holds | Title |' "$idx" \
+  && grep -qF '| decision | [E1-F1](refined/e1-f1-x.md) | 2 | T E1-F1 |' "$idx" \
+  && [ "$(grep -n '## Needs you' "$idx" | cut -d: -f1)" -lt "$(grep -n '## E1' "$idx" | cut -d: -f1)" ]; }; check "index has Needs you table before the item listing" $?
+wi validate | grep -qx ok; check "validate ok after index with Needs you" $?
+new_tracker; mk backlog E1-F1 F P3 S; wi index >/dev/null
+grep -A2 '## Needs you' "$T/r/INDEX.md" | grep -qx 'Nothing.'; check "index Needs you says Nothing. when empty" $?
+wi bogus | grep -qF 'next [--auto] | inbox'; check "usage lists next [--auto] and inbox" $?
+
 [ $fails -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }

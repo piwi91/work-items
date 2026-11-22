@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Work-item tracker helper: list [state] | next | nextid <E<n>> <F|B> | index | validate | stale [days]
+# Work-item tracker helper: list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days]
 # Portable (bash 3.2 + awk): items are read from frontmatter; INDEX.md and design item tables are generated.
 set -euo pipefail
 
@@ -17,7 +17,7 @@ tracker_root() {
 ROOT="$(tracker_root)"
 cd "$ROOT"
 
-# One tab-separated record per item: state id epic type priority size status deps title file design last_reviewed
+# One tab-separated record per item: state id epic type priority size status deps title file design last_reviewed auto
 records() {
   local s f
   for s in $STATES; do
@@ -30,7 +30,7 @@ records() {
           if (fm["id"] == "") exit
           e = fm["epic"]; sub(/ .*/, "", e)
           d = fm["depends_on"]; gsub(/[][ ]/, "", d)
-          printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", state, fm["id"], e, fm["type"], fm["priority"], fm["size"], fm["status"], d, fm["title"], file, fm["design"], fm["last_reviewed"]
+          printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", state, fm["id"], e, fm["type"], fm["priority"], fm["size"], fm["status"], d, fm["title"], file, fm["design"], fm["last_reviewed"], fm["auto"]
         }' "$f"
     done
   done
@@ -47,17 +47,18 @@ cmd_list() {
 }
 
 # Pick-up ladder: deps done → epic focus → priority → unblock weight → bug first → smaller → ID.
-cmd_next() {
-  { epic_focus | sed 's/^/F\t/; s/ /\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' -v open="$OPEN_STATES" '
+cmd_next() { # [--auto]: prefix rows with build|refine|draft, skip auto: no
+  { epic_focus | sed 's/^/F\t/; s/ /\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' -v open="$OPEN_STATES" -v auto="${1:-}" '
     BEGIN { split(open, o, " "); for (i in o) isopen[o[i]] = 1 }
     $1 == "F" { focus[$2] = $3; next }
-    { st[$3] = $2; ep[$3] = $4; ty[$3] = $5; pr[$3] = $6; sz[$3] = $7; status[$3] = $8; deps[$3] = $9; ti[$3] = $10 }
+    { st[$3] = $2; ep[$3] = $4; ty[$3] = $5; pr[$3] = $6; sz[$3] = $7; status[$3] = $8; deps[$3] = $9; ti[$3] = $10; au[$3] = $14 }
     END {
       for (id in st) if (isopen[st[id]]) { n = split(deps[id], d, ","); for (i = 1; i <= n; i++) fanin[d[i]]++ }
       split("XS S M L XL XXL", sizes, " "); for (i in sizes) srank[sizes[i]] = i
       for (id in st) {
         if (st[id] != "backlog" && st[id] != "refined") continue
-        if (status[id] == "blocked" || status[id] == "dropped") continue
+        if (status[id] == "blocked" || status[id] == "dropped" || status[id] == "draft") continue
+        if (auto != "" && au[id] == "no") continue
         ready = 1; n = split(deps[id], d, ",")
         for (i = 1; i <= n; i++) if (d[i] != "" && (st[d[i]] != "completed" || status[d[i]] == "dropped")) ready = 0
         if (!ready) continue
@@ -66,9 +67,47 @@ cmd_next() {
         s = (sz[id] in srank) ? srank[sz[id]] : 3
         match(id, /[0-9]+/); en = substr(id, RSTART, RLENGTH)
         rest = substr(id, RSTART + RLENGTH); match(rest, /[0-9]+/); mn = substr(rest, RSTART, RLENGTH)
-        printf "%d%s%03d%d%d%04d%04d\t%-8s %-8s %-3s %-2s %-3s %s\n", f, p, 999 - fanin[id], ((ty[id] == "B") ? 0 : 1), s, en, mn, id, st[id], p, ty[id], sz[id], ti[id]
+        act = ""
+        if (auto != "") act = (st[id] == "refined") ? "build   " : ((s <= 2) ? "refine  " : "draft   ")
+        printf "%d%s%03d%d%d%04d%04d\t%s%-8s %-8s %-3s %-2s %-3s %s\n", f, p, 999 - fanin[id], ((ty[id] == "B") ? 0 : 1), s, en, mn, act, id, st[id], p, ty[id], sz[id], ti[id]
       }
     }' | sort | cut -f2-
+}
+
+# Items waiting on a human, TSV: kind id state holds title file. Sorted by holds desc, then ID.
+inbox_rows() {
+  records | awk -F'\t' -v open="$OPEN_STATES" '
+    BEGIN { split(open, o, " "); for (i in o) isopen[o[i]] = 1 }
+    function count_holds(id,   n, i, c, k) {
+      seen[id] = 1; c = 0; n = split(dependents[id], k, ",")
+      for (i = 1; i <= n; i++) if (k[i] != "" && !(k[i] in seen) && isopen[st[k[i]]]) c += 1 + count_holds(k[i])
+      return c
+    }
+    { st[$2] = $1; ti[$2] = $9; fl[$2] = $10; status[$2] = $7; au[$2] = $13; ids[++n] = $2
+      m = split($8, d, ","); for (i = 1; i <= m; i++) if (d[i] != "") dependents[d[i]] = dependents[d[i]] "," $2 }
+    END {
+      for (j = 1; j <= n; j++) {
+        id = ids[j]; kind = ""
+        if (status[id] == "blocked") kind = "decision"
+        else if (status[id] == "needs-attention") kind = "failed"
+        else if (status[id] == "draft") kind = "approve"
+        else if (st[id] == "backlog" && au[id] == "no") kind = "refine"
+        if (kind == "") continue
+        delete seen; h = count_holds(id)
+        match(id, /[0-9]+/); en = substr(id, RSTART, RLENGTH)
+        rest = substr(id, RSTART + RLENGTH); match(rest, /[0-9]+/); mn = substr(rest, RSTART, RLENGTH)
+        printf "%03d%04d%04d\t%s\t%s\t%s\t%d\t%s\t%s\n", 999 - h, en, mn, kind, id, st[id], h, ti[id], fl[id]
+      }
+    }' | sort | cut -f2-
+}
+
+cmd_inbox() { inbox_rows | awk -F'\t' '{ printf "%s %s %s holds=%d %s\n", $1, $2, $3, $4, $5 }'; }
+
+gen_needs_you() {
+  echo '## Needs you'; echo
+  if [[ -z "$(inbox_rows)" ]]; then echo 'Nothing.'; return; fi
+  echo '| Kind | Item | Holds | Title |'; echo '|---|---|---|---|'
+  inbox_rows | awk -F'\t' '{ printf "| %s | [%s](%s) | %d | %s |\n", $1, $2, $6, $4, $5 }'
 }
 
 cmd_nextid() { # E<n> F|B
@@ -114,7 +153,8 @@ gen_design_table() { # <design path>: items pointing at it, ID order, links rela
 gen_index() { # EPICS.md is read from the cwd
   local f s st
   echo '<!-- generated by wi index, do not edit -->'
-  echo '# Index'
+  echo '# Index'; echo
+  gen_needs_you
   keyed_records | sort -t "$TAB" -k1,1n -k2,2 | cut -f3- | gen_open_tables EPICS.md
   echo; echo '## Designs'; echo
   echo '| Design | Status | Items |'; echo '|---|---|---|'
@@ -180,7 +220,7 @@ cmd_validate() {
     function bad_(msg) { print msg; bad = 1 }
     BEGIN {
       split(epics, e, " "); for (i in e) epic[e[i]] = 1
-      allowed["backlog"] = " backlog "; allowed["refined"] = " refined blocked "
+      allowed["backlog"] = " backlog "; allowed["refined"] = " refined draft blocked "
       allowed["in-progress"] = " in-progress blocked needs-attention "
       allowed["in-review"] = " in-review needs-attention "; allowed["completed"] = " completed dropped "
     }
@@ -188,6 +228,7 @@ cmd_validate() {
     $2 !~ /^E[0-9]+-[FB][0-9]+$/ { bad_("bad id " $2 " in " $10) }
     $4 != "" && $2 ~ /^E[0-9]+-[FB][0-9]+$/ && $4 != substr($2, index($2, "-") + 1, 1) { bad_($10 ": type " $4 " does not match id " $2) }
     $5 != "" && $5 !~ /^P[1-5]$/ { bad_($10 ": bad priority " $5) }
+    $13 != "" && $13 !~ /^(yes|no)$/ { bad_($10 ": bad auto " $13) }
     $6 != "" && $6 !~ /^(XS|S|M|L|XL|XXL)$/ { bad_($10 ": bad size " $6) }
     $2 == "" || $9 == "" || ($1 != "completed" && $4 == "") { bad_("missing id/title/type in " $1 ": " $2) }
     index(allowed[$1], " " $7 " ") == 0 { bad_($10 ": status " $7 " does not fit folder " $1) }
@@ -216,10 +257,11 @@ cmd_stale() { # [days]: open items not reviewed for N days
 
 case "${1:-list}" in
   list) cmd_list "${2:-}" ;;
-  next) cmd_next ;;
+  next) cmd_next "${2:-}" ;;
+  inbox) cmd_inbox ;;
   nextid) cmd_nextid "${2:-}" "${3:-}" ;;
   index) cmd_index ;;
   validate) cmd_validate ;;
   stale) cmd_stale "${2:-60}" ;;
-  *) echo "usage: wi list [state] | next | nextid <E<n>> <F|B> | index | validate | stale [days]" >&2; exit 2 ;;
+  *) echo "usage: wi list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days]" >&2; exit 2 ;;
 esac
