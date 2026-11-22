@@ -8,10 +8,11 @@ Shipped as the Claude Code plugin `work-items`: skills `wi` and `orchestrate`, 1
 ## 2. Install
 a. Add the marketplace and install (user scope = every project):
 ```
-claude plugin marketplace add <git-url or local path>
+claude plugin marketplace add piwi91/work-items
 claude plugin install work-items@work-items
 ```
-In a session: `/plugin marketplace add <git-url or path>`, then `/plugin install work-items@work-items`.
+For local development of the plugin, use a local path instead (`claude plugin marketplace add /path/to/work-items`); it loads files in place, with no version bump needed.
+In a session: `/plugin marketplace add piwi91/work-items`, then `/plugin install work-items@work-items`.
 
 b. New tracker: `/work-items:wi init`.
 c. Existing tracker: `/work-items:wi upgrade` (`--dry-run` shows the plan).

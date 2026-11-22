@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.2
+- Install docs point to the GitHub marketplace piwi91/work-items.
+
 ## 0.2.1
 - Added MIT licence and author.
 - Shorter README.
