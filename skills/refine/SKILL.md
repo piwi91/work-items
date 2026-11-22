@@ -45,11 +45,12 @@ Turn one backlog item into a ready spec. Interactive. No implementation.
 ## Refine chain
 One path, all sizes. Used by `auto` and `implement --autonomous`. Never asks the user.
 
-1. `work-items:classify` against WORKFLOW.md sensitive areas. Sensitive → set `auto: no` in the item, leave it in `backlog/` (it shows in `/work-items:inbox` as `refine`), stop.
-2. `work-items:researcher` on the current state.
-3. `work-items:refiner` (opus): item + research + design. Returns `verdict: refined|blocked` + spec, open decisions recorded (question, options, recommendation, consequences).
-4. Only if open decisions remain: `work-items:fable-refiner` with spec + open decisions + research. It answers a decision only when evidence settles it, citing `path:line`; otherwise it leaves it open.
-5. The caller writes the file. A resolver answer goes under its question as `**Answer (YYYY-MM-DD, resolver):** …` and is also listed as `Assumed:` in Technical approach. Then:
+1. Item has `auto: no` → stop, leave it in place, report it.
+2. `work-items:classify` against WORKFLOW.md sensitive areas. Sensitive → set `auto: no` in the item, leave it in `backlog/` (it shows in `/work-items:inbox` as `refine`), stop.
+3. `work-items:researcher` on the current state.
+4. `work-items:refiner` (opus): item + research + design. Returns `verdict: refined|blocked` + spec, open decisions recorded (question, options, recommendation, consequences).
+5. Only if open decisions remain: `work-items:fable-refiner` with spec + open decisions + research. It answers a decision only when evidence settles it, citing `path:line`; otherwise it leaves it open.
+6. The caller writes the file. A resolver answer goes under its question as `**Answer (YYYY-MM-DD, resolver):** …` and is also listed as `Assumed:` in Technical approach. Then:
 
 | Result | Write |
 |---|---|

@@ -20,7 +20,7 @@ Never asks the user. Each pass reads state from git, nothing from memory.
 |---|---|---|
 | `build` | refined | step 3 |
 | `refine` | XS/S backlog | refine chain (refine SKILL.md § Refine chain), then build if it came out `refined` |
-| `draft` | M+ backlog | refine chain; the result waits as `draft` |
+| `draft` | M+ or no-size backlog (missing size counts as M) | refine chain; the result waits as `draft` |
 
 3. `build` → `/work-items:implement <item> --autonomous`. Orchestrate auto-merges when the Stage 4 gate passes; merged dependencies unlock dependents for the next pass.
 4. Record the outcome. Next pass.

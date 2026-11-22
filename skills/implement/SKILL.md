@@ -12,7 +12,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/reference/tracker.md` first.
 
 Delivery runs through the `work-items:orchestrate` skill. This file covers only the tracker side.
 
-1. **Queue**: the named items, or with `--autonomous` and no items, `wi next`. Order by deps.
+1. **Queue**: the named items, or with `--autonomous` and no items, `wi next --auto` (rows start with the action: build/refine/draft). Order by deps.
 2. **Readiness** per item (tracker.md § Gates):
    - `refined/` with `status: refined`, or `in-progress/` → ready;
    - backlog item → with `--autonomous`, run the refine chain (refine SKILL.md § Refine chain) and build only if it came out `refined`; otherwise ask, or `/work-items:refine`;

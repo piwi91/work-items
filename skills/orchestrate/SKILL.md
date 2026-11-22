@@ -48,7 +48,7 @@ Never call `AskUserQuestion`. Each ask below takes its default, written into the
 ### 1b. Readiness gate (per item)
 Read the spec yourself; no agent call.
 
-**Ready:** in `refined/` with `status: refined` (not `draft`), or `in-progress/` (resuming); or in `backlog/` with clear AC, one obvious location, no new contract, nothing security-sensitive. "Refined" means ready, not small.
+**Ready:** in `refined/` with `status: refined` (not `draft`), or `in-progress/` (resuming); or (not under `--autonomous`; there backlog items go through the refine skill's Refine chain first) in `backlog/` with clear AC, one obvious location, no new contract, nothing security-sensitive. "Refined" means ready, not small.
 
 **Not ready:** `status: blocked`, unanswered `## Open decisions`, a `depends_on` not completed, or a backlog item failing the bar.
 

@@ -14,7 +14,7 @@ Resolve `status: blocked` and `status: draft` items with the user. `/work-items:
 
 1. **Collect** `status: draft` from `refined/` (spec waiting for approval) and `status: blocked` from `refined/` (`## Open decisions`, no branch yet) and `in-progress/` (`## Blocked`, branch exists). Skip questions that already have an `**Answer:**`.
 2. **Per item, in order**:
-   - `draft`: show the spec, `AskUserQuestion` approve / change / back to refine / drop. Approve → `status: refined`. Change → edit the spec, ask again. Back to refine → `/work-items:refine`. Drop → `/work-items:backlog drop`. `wi index && wi validate`, commit; skip the rest of this list.
+   - `draft`: show the spec, `AskUserQuestion` approve / change / back to refine / drop. Approve → `status: refined`. Change → edit the spec, ask again. Back to refine → `/work-items:refine`. Drop → `/work-items:backlog drop`. `wi index && wi validate`, commit; skip the remaining steps for this item.
    - Is it still open? Check against the default branch, or `git diff main...<branch>` for an implementation parking. Settled since → propose "obsolete, resume as-is"; no longer wanted → propose `backlog drop`.
    - Recommendation: reuse the refiner's if it is still current. Otherwise use `work-items:architect` for AC/design conflicts and `work-items:researcher` for facts. Check `DECISIONS.md` first.
    - `AskUserQuestion`: recommendation first, plus alternatives including "park longer", "back to refine" and "drop".

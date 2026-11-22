@@ -14,7 +14,7 @@ Bring an existing tracker up to this plugin version. Never edit an item body exc
 
 1. **Root**: find the tracker root as `wi` does. Read `wi-version:` from WORKFLOW.md; absent → `0.1.0` (copied, pre-plugin layout).
 2. **Target**: `version` in `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`. Equal → print "up to date", stop.
-3. **Plan**: every migration below whose `from` is ≥ the tracker version, in order, plus:
+3. **Plan**: every migration below whose `from` is ≥ the tracker version (`0.2.x` matches any 0.2.* version), in order, plus:
    - Skeleton files from `${CLAUDE_PLUGIN_ROOT}/skills/init/skeleton/` that are missing. Never overwrite.
    - WORKFLOW.md sections present in the skeleton but missing in the tracker: append the section with its placeholder. Keep existing values.
    - `wi-version:` set to the target.
