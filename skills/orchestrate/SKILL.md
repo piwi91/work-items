@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Run tasks or tracked work items through a fixed pipeline. Preflight in the session (readiness gate, open questions answered up front), a scoping Workflow call (Classify, Understand, Plan, no worktree), a branch per repo cluster, then one background Workflow per cluster that runs each unit as implement, validate, security review (conditional), with retry then escalation, one full-suite Verify, and a commit sweep. Postflight pushes, opens PRs and updates the tracker. Never reports a false pass. With `--autonomous` it never asks the user and merges when the Stage 4 gate passes. Use when asked to orchestrate a task, or by `/work-items:wi implement`.
+description: Run tasks or tracked work items through a fixed pipeline. Preflight in the session (readiness gate, open questions answered up front), a scoping Workflow call (Classify, Understand, Plan, no worktree), a branch per repo cluster, then one background Workflow per cluster that runs each unit as implement, validate, security review (conditional), with retry then escalation, one full-suite Verify, and a commit sweep. Postflight pushes, opens PRs and updates the tracker. Never reports a false pass. With `--autonomous` it never asks the user and merges when the Stage 4 gate passes. Use when asked to orchestrate a task, or by `/work-items:implement`.
 ---
 
 # Orchestrator
@@ -8,7 +8,7 @@ description: Run tasks or tracked work items through a fixed pipeline. Preflight
 ## Stage 0 — Project override
 If the target repo has `.claude/orchestrate/SKILL.md`, read it and follow it instead of this file.
 
-Old personal copies `~/.claude/skills/{wi,orchestrate}` and old project copies `.claude/skills/{wi,orchestrate}` are obsolete. Remove them (`/work-items:wi upgrade` removes the project copies).
+Old personal copies `~/.claude/skills/{wi,orchestrate}` and old project copies `.claude/skills/{wi,orchestrate}` are obsolete. Remove them (`/work-items:upgrade` removes the project copies).
 
 | Stage | Where | Why there |
 |---|---|---|
@@ -43,12 +43,12 @@ Never call `AskUserQuestion`. Each ask below takes its default, written into the
 | 1c-bis `needs-answers` | take each recommendation; none on a question → skip the item |
 | answers needed later (escalation) | park the PR (Stage 4 step P) |
 
-**Standing authorization** for the PRs this run opened: `git push` of the run's branch, `gh pr create`, `gh pr merge --merge --delete-branch` once the gate passes, closing PRs that merge subsumed. Nothing else: never push a default branch, never force-push, never merge a PR this run did not open (except via `/work-items:wi merge`, see `wi/merge.md`).
+**Standing authorization** for the PRs this run opened: `git push` of the run's branch, `gh pr create`, `gh pr merge --merge --delete-branch` once the gate passes, closing PRs that merge subsumed. Nothing else: never push a default branch, never force-push, never merge a PR this run did not open (except via `/work-items:merge`, see `merge`).
 
 ### 1b. Readiness gate (per item)
 Read the spec yourself; no agent call.
 
-**Ready:** in `refined/`, or `in-progress/` (resuming); or in `backlog/` with clear AC, one obvious location, no new contract, nothing security-sensitive. "Refined" means ready, not small.
+**Ready:** in `refined/` with `status: refined` (not `draft`), or `in-progress/` (resuming); or in `backlog/` with clear AC, one obvious location, no new contract, nothing security-sensitive. "Refined" means ready, not small.
 
 **Not ready:** `status: blocked`, unanswered `## Open decisions`, a `depends_on` not completed, or a backlog item failing the bar.
 
@@ -145,7 +145,7 @@ Every `agent()` call is null-checked and fails closed: a failed `work-items:clas
    - Merging is Stage 4, only for `resolved: true` with `--autonomous`.
    - Put `Verified-sha: <verified_sha>` on its own line (omit when null).
 4. Multi-repo cross-sync: once every cluster of an item has a PR, diff each branch against its `baseRef` and check every identifier one cluster assumed of another (field name, enum value, endpoint shape) against what the sibling shipped, literally. A mismatch blocks `ready-to-merge` on every affected PR. A dependent PR says "Depends on: <url>" and stays off `ready-to-merge` until that PR merges.
-5. Tracker bookkeeping (the tracker's own rules win; for `/work-items:wi` see implement.md step 5): stamp `pr:`; resolved → summary and move to `in-review/`; escalated or unresolved → stay `in-progress/` with `blocked` or `needs-attention`.
+5. Tracker bookkeeping (the tracker's own rules win; for `/work-items:implement` see its step 5): stamp `pr:`; resolved → summary and move to `in-review/`; escalated or unresolved → stay `in-progress/` with `blocked` or `needs-attention`.
 6. Cleanup: on a resolved cluster remove the worktree once pushed and the PR is open, and tear down test infrastructure (1e-bis) unless Stage 4 needs it. On an escalated cluster keep both and say where.
 7. Report one line per item: resolved, escalated (with the decision it waits on), or unresolved, plus PR link and label. Never summarize an escalated or unresolved run as done.
 
@@ -165,7 +165,7 @@ Steps:
 3. Base moved: merge `origin/<base>` into the branch. Resolve only mechanical conflicts; anything else: park. Re-run the touched checks, push, update `Verified-sha`, back to 1. Max 2 syncs.
 4. Merge: `gh pr merge <n> --merge --delete-branch`. Use `--merge`, not `--squash`: subsumed-PR detection needs branch ancestry. Retarget a stacked child to the default branch before its base branch is deleted, or GitHub closes it for good.
 5. Subsumed PRs: for every other open PR, `git merge-base --is-ancestor <its-head> <merged-head>`. An ancestor is subsumed: confirm the default branch is a strict superset, comment with the merge commit, `gh pr close --delete-branch`, promote its item.
-6. Tracker: run `/work-items:wi sync` (moves merged items to `completed/` with the summary updated).
+6. Tracker: run `/work-items:sync` (moves merged items to `completed/` with the summary updated).
 7. Post-merge check: re-run the project's checks on the updated default branch. Red: comment on the merged PR with the signature and report it. Never revert automatically.
 8. Cleanup as in Stage 3 step 6.
 

@@ -1,4 +1,14 @@
-# /work-items:wi design <subject | item | slug> [| supersede <slug>]
+---
+name: design
+description: Write one design doc (cross-cutting architecture) to design/.
+argument-hint: "<subject|item|slug> [| supersede <slug>]"
+disable-model-invocation: true
+allowed-tools: Read, Edit, Write, Glob, Grep, Bash, Agent, AskUserQuestion, Skill
+---
+
+# /work-items:design <subject | item | slug> [| supersede <slug>]
+
+Read `${CLAUDE_PLUGIN_ROOT}/reference/tracker.md` first.
 
 Write one design doc to `design/<slug>.md`. You design; you do not implement. Only that file, `DECISIONS.md` and `EPICS.md`/`backlog/` (step 8) are written.
 
@@ -13,8 +23,8 @@ A design holds cross-cutting architecture and implies several backlog items. Con
 5. **Draft** to the template below. Cover options with real reasons, contracts, security at every layer that applies, and migration or rollout when it is not greenfield. Add a diagram where structure or ordering matters.
 6. **Self-challenge**: list unverified assumptions (`VALIDATE`), security gaps, failure modes, scope leaks. Dispatch `work-items:architect` to red-team the draft; add `work-items:security-review` when it touches trust, identity, secrets, tenancy or network. Fix what you can, surface the rest as open questions.
 7. **Preview**: print the full doc as one code block, then ask approve / revise / re-frame. Write nothing before approval.
-8. **Write** `design/<slug>.md` with `status: draft`. Accepted at once: set `status: accepted` and add one row to `DECISIONS.md` in the same commit. Offer `/work-items:wi backlog` for each implied item. Supersede: set the prior doc `status: superseded`, `superseded-by: <slug>`, and add the new `DECISIONS.md` row with `Supersedes`. `wi index && wi validate`, commit.
-9. Tell the user: `/work-items:wi refine <item>` picks these up, reads this design and stamps `design: design/<slug>.md`. When every item is completed, set `status: implemented`.
+8. **Write** `design/<slug>.md` with `status: draft`. Accepted at once: set `status: accepted` and add one row to `DECISIONS.md` in the same commit. Offer `/work-items:backlog` for each implied item. Supersede: set the prior doc `status: superseded`, `superseded-by: <slug>`, and add the new `DECISIONS.md` row with `Supersedes`. `wi index && wi validate`, commit.
+9. Tell the user: `/work-items:refine <item>` picks these up, reads this design and stamps `design: design/<slug>.md`. When every item is completed, set `status: implemented`.
 
 ```markdown
 ---

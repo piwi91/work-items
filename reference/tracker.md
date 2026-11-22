@@ -1,14 +1,6 @@
----
-name: wi
-description: Work-item loop, tracked as markdown files in git. design → backlog → refine → implement → review → completed. Verbs: init, upgrade, design, backlog, next, refine, implement, merge, unblock, sync.
-argument-hint: "init | upgrade [--dry-run] | design <subject|item> [| supersede <slug>] | backlog [list | epic <title> | feature|bug <epic> <title> | drop <item> <reason>] | next | refine <item> | implement <item>... [--autonomous] | merge [prs|items] | --all | unblock [item] | sync"
-disable-model-invocation: true
-allowed-tools: Read, Edit, Write, Glob, Grep, Bash, Agent, AskUserQuestion, Skill
----
+# Tracker rules
 
-# /work-items:wi — work-item loop
-
-Args: `$ARGUMENTS`. First word = verb. Helper: `"${CLAUDE_PLUGIN_ROOT}/bin/wi"`, also on PATH as `wi` (the two are the same; where a command must run reliably, use the full path) (`list [state] | next | nextid <E<n>> <F|B> | index | validate | stale [days]`).
+Shared by every `/work-items:<verb>` skill. Helper: `"${CLAUDE_PLUGIN_ROOT}/bin/wi"`, also on PATH as `wi` (the two are the same; where a command must run reliably, use the full path) (`list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days]`).
 
 ## Precedence
 1. The tracker's `WORKFLOW.md` overrides any default below: sizes, categories, sensitive areas, target repos, commit and worktree policy. Test and docs details live in the code repo's CLAUDE.md `## Testing` / `## Docs`, which every agent reads.
@@ -46,19 +38,20 @@ category: <one label>     # optional; set from WORKFLOW.md if it defines any
 repos: [<repo>]           # cockpit mode only, delivery order
 depends_on: []            # item IDs only
 design: <path relative to root, or —>   # optional, must exist
-status: backlog | refined | in-progress | blocked | needs-attention | in-review | completed | dropped
+status: backlog | refined | draft | in-progress | blocked | needs-attention | in-review | completed | dropped
+auto: no                  # optional; keeps the item out of `auto` (sensitive, needs a human refine)
 pr: <url>                 # stamped at implement; one per repo
 refined_at: YYYY-MM-DD    # stamped at refine
 completed_at: YYYY-MM-DD  # stamped at completed
 last_reviewed: YYYY-MM-DD
 ```
-Status per folder: backlog → `backlog`; refined → `refined`, `blocked`; in-progress → `in-progress`, `blocked`, `needs-attention`; in-review → `in-review`, `needs-attention`; completed → `completed`, `dropped`.
+Status per folder: backlog → `backlog`; refined → `refined`, `draft`, `blocked`; in-progress → `in-progress`, `blocked`, `needs-attention`; in-review → `in-review`, `needs-attention`; completed → `completed`, `dropped`.
 
 Default sizes: **XS** one file/component, a few lines. **S** one component, tightly scoped, no contract change. **M** non-trivial, or 2 components. **L+** several components, a new contract/API/schema, or a security/isolation change. A WORKFLOW.md rubric replaces this.
 
 ## Pick-up order (`wi next`)
-Deps completed (a dropped dep never counts) → epic `focus: now` first, `later` last → priority → most dependents first → bug before feature → smaller first → ID. Blocked and dropped items are skipped.
-Finish before you start: `sync` → `/work-items:wi merge --all` → `unblock` → `wi stale` and review or drop what it lists → only then new items. Reviewed and kept → set `last_reviewed` to today; obsolete → `/work-items:wi backlog drop`.
+Deps completed (a dropped dep never counts) → epic `focus: now` first, `later` last → priority → most dependents first → bug before feature → smaller first → ID. Blocked, draft and dropped items are skipped.
+Finish before you start: `sync` → `/work-items:merge --all` → `unblock` → `wi stale` and review or drop what it lists → only then new items. Reviewed and kept → set `last_reviewed` to today; obsolete → `/work-items:backlog drop`.
 
 ## Gates
 - **Ready**: user story + observable acceptance criteria (AC) + tasks. Exception: an XS/S backlog item with clear AC, one obvious location, no new contract and nothing security-sensitive.
@@ -70,19 +63,3 @@ Finish before you start: `sync` → `/work-items:wi merge --all` → `unblock` �
 ## Git
 - **Tracker commits**: default is straight to the default branch (pull/rebase first; explicit pathspecs, never `git add -A`). WORKFLOW.md may say `tracker-commits: branch`; then tracker edits ride the item's PR, and `sync` opens a small PR.
 - **Code**: branch `claude/<slug>-<4char>` → PR, one per repo. Stacked PRs for in-run deps. Worktree or in place: WORKFLOW.md `worktree: yes|no`, else ask before starting.
-
-## Verbs
-| Verb | Procedure |
-|---|---|
-| `init` | Copy `${CLAUDE_SKILL_DIR}/skeleton/` into the tracker root, never overwriting an existing file. Set `wi-version` in WORKFLOW.md to the `version` in `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`. Ask: in-repo or cockpit, commit policy, worktree yes/no. Offer to add to the project's CLAUDE.md the line `Work items: tracked in work-items/ with /work-items:wi (see work-items/WORKFLOW.md).` and, when missing, `## Testing` (tiers, commands, paths, gotchas) and `## Docs` (doc locations, changelog, agent guidance) filled from the repo. Run `wi index`, `wi validate`, commit. |
-| `upgrade [--dry-run]` | [upgrade.md](upgrade.md) |
-| `design <subject>` | [design.md](design.md) |
-| `backlog` | [backlog.md](backlog.md) |
-| `next` | Run `wi next`, print the top 10. No edits. |
-| `refine <item>` | [refine.md](refine.md) |
-| `implement <items> [--autonomous]` | [implement.md](implement.md) |
-| `merge [prs\|items] \| --all` | [merge.md](merge.md) |
-| `unblock [items]` | [unblock.md](unblock.md) |
-| `sync` | [sync.md](sync.md) |
-
-Resolve an item argument by exact ID → slug → fuzzy title. If several match, ask.

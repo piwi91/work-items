@@ -1,8 +1,18 @@
-# /work-items:wi refine <item>
+---
+name: refine
+description: Turn one backlog item into a ready spec, interactively.
+argument-hint: "<item>"
+disable-model-invocation: true
+allowed-tools: Read, Edit, Write, Glob, Grep, Bash, Agent, AskUserQuestion, Skill
+---
+
+# /work-items:refine <item>
+
+Read `${CLAUDE_PLUGIN_ROOT}/reference/tracker.md` first.
 
 Turn one backlog item into a ready spec. Interactive. No implementation.
 
-1. **Resolve** in `backlog/`. Not found → offer `/work-items:wi backlog`. Never invent an item.
+1. **Resolve** in `backlog/`. Not found → offer `/work-items:backlog`. Never invent an item.
 2. **Context**: read the item, its epic rationale, `DECISIONS.md`, the `design:` doc if set (the source of truth for *how*, don't re-argue it), WORKFLOW.md, and the code repo's conventions docs. A spec must not contradict a `DECISIONS.md` row.
 3. **Deps**: find undelivered items or components this needs. Record IDs in `depends_on`, the why in `## Dependencies`.
 4. **Repo impact** (cockpit mode): start where the change originates, walk WORKFLOW.md's downstream column, set `repos:` in delivery order (producer first). Drop a repo with no concrete change. Too big → propose a split per repo.
@@ -30,6 +40,21 @@ Turn one backlog item into a ready spec. Interactive. No implementation.
     ## Tasks                (- [ ] items)
     ```
 11. **Design upkeep**: a decision that contradicts the `design:` doc or a `DECISIONS.md` row is a new decision: add a row with `Supersedes`, and amend the design (body states the current shape; a dated `## Decision record` entry at the foot says what changed and why), in the same commit.
-12. `wi index && wi validate`, commit, then tell the user: `/work-items:wi implement <slug>`.
+12. `wi index && wi validate`, commit, then tell the user: `/work-items:implement <slug>`.
 
-**Auto-refine** (used by `implement --autonomous` for an XS/S backlog item outside the sensitive areas): dispatch `work-items:fable-refiner`. It returns the spec, or blocked with open decisions (options + recommendation); the caller writes the file. Blocked → `status: blocked` + `## Open decisions` → `/work-items:wi unblock`.
+## Refine chain
+One path, all sizes. Used by `auto` and `implement --autonomous`. Never asks the user.
+
+1. `work-items:classify` against WORKFLOW.md sensitive areas. Sensitive → set `auto: no` in the item, leave it in `backlog/` (it shows in `/work-items:inbox` as `refine`), stop.
+2. `work-items:researcher` on the current state.
+3. `work-items:refiner` (opus): item + research + design. Returns `verdict: refined|blocked` + spec, open decisions recorded (question, options, recommendation, consequences).
+4. Only if open decisions remain: `work-items:fable-refiner` with spec + open decisions + research. It answers a decision only when evidence settles it, citing `path:line`; otherwise it leaves it open.
+5. The caller writes the file. A resolver answer goes under its question as `**Answer (YYYY-MM-DD, resolver):** …` and is also listed as `Assumed:` in Technical approach. Then:
+
+| Result | Write |
+|---|---|
+| any decision still open | `refined/`, `status: blocked`, `## Open decisions` |
+| XS/S, none open | `refined/`, `status: refined` (buildable) |
+| M or larger, none open | `refined/`, `status: draft` (waits for human approval via `/work-items:unblock`) |
+
+`wi index && wi validate`, commit.

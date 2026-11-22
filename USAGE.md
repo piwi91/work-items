@@ -3,7 +3,7 @@
 ## 1. What it is
 Work items kept as markdown files in git. The folder is the state.
 Loop: design → backlog → refine → implement → merge → sync.
-Shipped as the Claude Code plugin `work-items`: skills `wi` and `orchestrate`, 12 agents, and the `wi` helper on PATH.
+Shipped as the Claude Code plugin `work-items`: one skill per verb (`/work-items:<verb>`), `orchestrate`, 13 agents, and the `wi` helper on PATH.
 
 ## 2. Install
 a. Add the marketplace and install (user scope = every project):
@@ -14,17 +14,17 @@ claude plugin install work-items@work-items
 For local development of the plugin, use a local path instead (`claude plugin marketplace add /path/to/work-items`); it loads files in place, with no version bump needed.
 In a session: `/plugin marketplace add piwi91/work-items`, then `/plugin install work-items@work-items`.
 
-b. New tracker: `/work-items:wi init`.
-c. Existing tracker: `/work-items:wi upgrade` (`--dry-run` shows the plan).
+b. New tracker: `/work-items:init`.
+c. Existing tracker: `/work-items:upgrade` (`--dry-run` shows the plan).
 d. Update the plugin:
 ```
 claude plugin marketplace update work-items
 claude plugin update work-items@work-items
 ```
-Or enable auto-update for the marketplace in `/plugin`. Then run `/work-items:wi upgrade` in each tracker.
+Or enable auto-update for the marketplace in `/plugin`. Then run `/work-items:upgrade` in each tracker.
 
 Also:
-- Remove old copies: `~/.claude/skills/{wi,orchestrate}`, and project copies (`/work-items:wi upgrade` removes those).
+- Remove old copies: `~/.claude/skills/{wi,orchestrate}`, and project copies (`/work-items:upgrade` removes those).
 - Tracker outside the project: set `WI_ROOT` in the project's `.claude/settings.json` under `env`, or export it.
 - The code repo's CLAUDE.md needs `## Testing` (tiers, commands, paths) and `## Docs` (doc locations, changelog, agent guidance).
 - Needs: git, bash 3.2+, awk. `gh` (authenticated) for implement, merge and sync.
@@ -38,33 +38,37 @@ Fill `WORKFLOW.md` (created by `init`):
 | `tracker-commits` | `main` or `branch` |
 | `worktree` | `yes` or `no`; omit to be asked |
 | Repos | `slug`, `path`, `reaches downstream`, `release` (`tag` cuts a semver tag on merge) |
-| Sensitive areas | Never auto-refined, always security review |
+| Sensitive areas | Never auto-refined (`auto: no`), always security review |
 | Size rubric | Only if the default does not fit |
 | Categories | Optional label set |
 | Conventions | Docs to read before planning |
 
-1. Add the first epic: `/work-items:wi backlog epic <title>`, or edit `EPICS.md`.
+1. Add the first epic: `/work-items:backlog epic <title>`, or edit `EPICS.md`.
 2. Run `wi validate`. Expect `ok`.
 
 ## 4. Daily loop
 | Command | When | Writes | Asks user |
 |---|---|---|---|
-| `/work-items:wi init` | New tracker | root, `EPICS.md`, `DECISIONS.md`, `INDEX.md`, state dirs, `WORKFLOW.md` | yes |
-| `/work-items:wi upgrade [--dry-run]` | Plugin updated | missing skeleton files, migrations, `wi-version` | once, before applying |
-| `/work-items:wi design <subject>` | Cross-cutting choice | `design/<slug>.md`, `DECISIONS.md` row | yes |
-| `/work-items:wi backlog` or `backlog list` | See open intent | nothing | no |
-| `/work-items:wi backlog epic <title>` | New epic | `EPICS.md` | only if no rationale |
-| `/work-items:wi backlog feature\|bug <epic> <title>` | New item | `backlog/<slug>.md` | on duplicate or unclear size |
-| `/work-items:wi backlog drop <item> <reason>` | Obsolete item | moves to `completed/`, `status: dropped` | no |
-| `/work-items:wi next` | Pick work | nothing (top 10 of `wi next`) | no |
-| `/work-items:wi refine <item>` | Make it ready | `refined/<slug>.md` | yes |
-| `/work-items:wi implement <item>... [--autonomous]` | Build it | branch, PR, `in-review/<slug>.md` | no with `--autonomous`, else yes |
-| `/work-items:wi unblock [item]` | Item is `blocked` | answers in the item, status back | yes |
-| `/work-items:wi merge [prs\|items]` or `--all` | PRs labelled `ready-to-merge` | merge, optional tag, then sync | no, parks instead |
-| `/work-items:wi sync` | After any merge | moves merged items to `completed/` | no |
+| `/work-items:init` | New tracker | root, `EPICS.md`, `DECISIONS.md`, `INDEX.md`, state dirs, `WORKFLOW.md` | yes |
+| `/work-items:upgrade [--dry-run]` | Plugin updated | missing skeleton files, migrations, `wi-version` | once, before applying |
+| `/work-items:design <subject>` | Cross-cutting choice | `design/<slug>.md`, `DECISIONS.md` row | yes |
+| `/work-items:backlog` or `backlog list` | See open intent | nothing | no |
+| `/work-items:backlog epic <title>` | New epic | `EPICS.md` | only if no rationale |
+| `/work-items:backlog feature\|bug <epic> <title>` | New item | `backlog/<slug>.md` | on duplicate or unclear size |
+| `/work-items:backlog drop <item> <reason>` | Obsolete item | moves to `completed/`, `status: dropped` | no |
+| `/work-items:next [--auto]` | Pick work | nothing (top 10 of `wi next`) | no |
+| `/work-items:inbox` | What needs you | nothing (`wi inbox`) | no |
+| `/work-items:refine <item>` | Make it ready | `refined/<slug>.md` | yes |
+| `/work-items:implement <item>... [--autonomous]` | Build it | branch, PR, `in-review/<slug>.md` | no with `--autonomous`, else yes |
+| `/work-items:unblock [item]` | Item is `blocked` or `draft` | answers or approval in the item, status back | yes |
+| `/work-items:auto [--max N] [--hours H]` | Unattended loop: sync, merge, refine, build | PRs, items in every state | never |
+| `/work-items:merge [prs\|items]` or `--all` | PRs labelled `ready-to-merge` | merge, optional tag, then sync | no, parks instead |
+| `/work-items:sync` | After any merge | moves merged items to `completed/` | no |
 
-Order, finish before you start: `sync` → `/work-items:wi merge --all` → `unblock` → `wi stale`, then review or drop what it lists → only then new items.
-Stale item reviewed and kept: set `last_reviewed` to today. Obsolete: `/work-items:wi backlog drop`.
+`auto` refine chain: classify (sensitive → `auto: no`, stays in backlog) → researcher → refiner (opus) → fable-refiner on open decisions only. Result: XS/S `refined` (built at once), M+ `draft` (approve in `unblock`), open decision `blocked`.
+
+Order, finish before you start: `sync` → `/work-items:merge --all` → `unblock` → `wi stale`, then review or drop what it lists → only then new items.
+Stale item reviewed and kept: set `last_reviewed` to today. Obsolete: `/work-items:backlog drop`.
 
 ## 5. wi reference
 Run as `wi <subcommand>` (the plugin's `bin/` is on PATH). Root: `$WI_ROOT`, else `work-items/`, else `.` (needs `EPICS.md` and `backlog/`).
@@ -72,9 +76,10 @@ Run as `wi <subcommand>` (the plugin's `bin/` is on PATH). Root: `$WI_ROOT`, els
 | Command | Example | Exit |
 |---|---|---|
 | `list [state]` | `wi list backlog` | 0 |
-| `next` | `wi next` | 0 |
+| `next [--auto]` | `wi next` | 0; `--auto` prefixes each row with `build`, `refine` or `draft`; draft items are skipped |
+| `inbox` | `wi inbox` | 0; rows `<kind> <id> <state-dir> holds=<n> <title>`, kinds `decision` (blocked), `failed` (needs-attention), `approve` (draft), `refine` (backlog, `auto: no`); most-blocking first |
 | `nextid <E<n>> <F\|B>` | `wi nextid E1 F` prints `E1-F4` | 0; 1 without args |
-| `index` | `wi index` | 0; rewrites `INDEX.md` and the design Work items blocks |
+| `index` | `wi index` | 0; rewrites `INDEX.md` (with a `## Needs you` section) and the design Work items blocks |
 | `validate` | `wi validate` prints `ok` | 0 ok; 1 with problems listed, `stale: run wi index` when generated files are out of date |
 | `stale [days]` | `wi stale 30` (default 60) | 0 |
 
@@ -91,12 +96,12 @@ An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
 
 ## 7. For agents
 1. Find the tracker root: `$WI_ROOT`, else `work-items/`, else the cwd (if it has `EPICS.md` and `backlog/`).
-2. Read `WORKFLOW.md`, then the `/work-items:wi` skill (`SKILL.md`), then the verb file (`refine.md`, `implement.md`, ...).
+2. Read `WORKFLOW.md`, then `reference/tracker.md`, then the verb's skill (`skills/<verb>/SKILL.md`).
 3. Verbs:
 
 | Interactive, needs the user | Safe unattended |
 |---|---|
-| `init`, `upgrade`, `design`, `backlog` (except `list`), `refine`, `unblock`, `implement` without `--autonomous` | `implement --autonomous`, `merge`, `sync`, `next`, `validate`, `backlog list` |
+| `init`, `upgrade`, `design`, `backlog` (except `list`), `refine`, `unblock`, `implement` without `--autonomous` | `auto`, `implement --autonomous`, `merge`, `sync`, `next`, `inbox`, `validate`, `backlog list` |
 
 4. No skills available? Create an item by hand:
    1. `wi nextid E<n> F` (or `B`). Result is the ID, for example `E1-F4`.
@@ -118,4 +123,4 @@ An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
 `bash tests/test-wi.sh` prints `all passed`.
 
 ## Develop
-Run `bash tests/test-wi.sh`. On every change, bump the version in `.claude-plugin/plugin.json` and `skills/wi/skeleton/WORKFLOW.md`, and add to CHANGELOG.md.
+Run `bash tests/test-wi.sh`. On every change, bump the version in `.claude-plugin/plugin.json` and `skills/init/skeleton/WORKFLOW.md`, and add to CHANGELOG.md.
