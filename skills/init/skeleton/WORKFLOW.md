@@ -1,5 +1,5 @@
 # WORKFLOW — project overlay for /work-items:*
-wi-version: 0.3.0
+wi-version: 0.3.1
 
 Overrides the defaults in the `/work-items:*` skills. Delete any section you don't need.
 

@@ -115,7 +115,7 @@ An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
 | What | How |
 |---|---|
 | Sizes, categories, sensitive areas, repos, commit and worktree policy | `WORKFLOW.md` overrides the defaults in the skill |
-| Replace orchestrate | Add `.claude/orchestrate/SKILL.md` (and its own `workflow.js`) |
+| Replace orchestrate | Add `.claude/orchestrate/SKILL.md` (and its own script, passed by `scriptPath` from the project) |
 | Agent behaviour | Agents are `work-items:<name>`; a project agent of the same bare name never replaces them. Steer through `WORKFLOW.md` or `.claude/orchestrate/SKILL.md` |
 | Agent model or prompt | Fork the plugin |
 

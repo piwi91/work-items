@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1
+- Orchestrate pipeline ships as plugin workflow `work-items:orchestrate`. Fixes failed inline-script and `scriptPath` calls.
+
 ## 0.3.0
 - Breaking: one command per verb (`/work-items:<verb>`). `/work-items:wi` is removed. `upgrade` migrates the project's CLAUDE.md.
 - New: `auto` (unattended loop), `inbox`, `draft` status, `auto: no` field, `refiner` agent (opus, all sizes).

@@ -13,7 +13,7 @@ Old personal copies `~/.claude/skills/{wi,orchestrate}` and old project copies `
 | Stage | Where | Why there |
 |---|---|---|
 | Preflight | this session | only place that can ask the user, and knows how many worktrees are needed |
-| Pipeline | `${CLAUDE_SKILL_DIR}/workflow.js`, scoping then execution, background `Workflow` calls | scoping needs no worktree; execution is per repo cluster and keeps diffs out of this context |
+| Pipeline | plugin workflow `work-items:orchestrate` (`workflows/orchestrate.js`), scoping then execution, background `Workflow` calls | scoping needs no worktree; execution is per repo cluster and keeps diffs out of this context |
 | Postflight | this session | pushing and opening a PR is outward-facing |
 | Merge | this session, `--autonomous` only | a gate checked by command |
 
@@ -58,7 +58,7 @@ On not ready, ask per item: **Refine it now** / **Implement anyway** (state assu
 Resolve anything unanswered in the spec via `AskUserQuestion`, each with your recommendation. Nothing downstream can ask. In work-item mode write each answer into the spec (`**Answer:** ...`) and commit it before launching, then pass the same answers as `args.answers`.
 
 ### 1c-bis. Scope before any worktree
-Call `Workflow` with `script` = the contents of `${CLAUDE_SKILL_DIR}/workflow.js` and `args: { task, item, answers, planOnly: true }`. Pass `script`, not `scriptPath`: `scriptPath` must sit under a working directory, and the skill directory may not. A scratchpad copy also serves `resumeFromRunId`.
+Call `Workflow` with `name: "work-items:orchestrate"` and `args: { task, item, answers, planOnly: true }`. Never pass `script` or `scriptPath` for it. If the name does not resolve, stop and report; do not copy or paste the file.
 
 No `workdir` or `branch`: read-only, git untouched.
 - `status: "needs-answers"`: ask the returned `open_questions` with your recommendation, record the answers as in 1c, re-invoke with `args.answers`.
@@ -91,7 +91,7 @@ git -C <repo> switch -c claude/<slug>-<4-char-suffix> <baseRef>
 If suites need expensive, reusable infrastructure (a database, a fixture stack), provision it here once, tell runs to reuse it and never tear it down (`args.answers`, with exact target names in the project's agent overrides). If busy, wait with the resume timer; never take it over. A warm shared resource leaks state between suites, so say so: a later failure may be a dirty fixture. The session tears it down after the item's PR is open (or merged and post-merge checks done), unless another session is using it. An escalated item keeps its infrastructure and its worktree.
 
 ### 1f. Launch execution per cluster
-Call `Workflow` again per cluster with the same `script` and:
+Call `Workflow` again per cluster with the same `name` and:
 
 | `args` field | Meaning |
 |---|---|
@@ -106,7 +106,7 @@ Call `Workflow` again per cluster with the same `script` and:
 
 A bare string task with no scoping call is accepted: plan and run in one call, for a quick ad-hoc edit. Runs are backgrounded and notify on completion. Don't poll.
 
-## Stage 2 — Pipeline (`workflow.js`)
+## Stage 2 — Pipeline (`workflows/orchestrate.js`)
 
 ### Scoping mode (no `units`)
 1. **Classify** (`work-items:classify`): `security_sensitive`, `small_task`.
@@ -181,9 +181,9 @@ Never schedule a timer when blocked on a human (`needs-answers` outside `--auton
 Models come from each agent's frontmatter in the plugin's `agents/`, not from the script.
 
 ## Extension points
-- **Full override**: `.claude/orchestrate/SKILL.md` plus its own `workflow.js`. Stage 0 hands over.
+- **Full override**: `.claude/orchestrate/SKILL.md` plus its own script, passed by `scriptPath` from the project. Stage 0 hands over.
 - **Swap an agent**: not possible by name; `work-items:<name>` always resolves to the plugin's agent. Steer behaviour through WORKFLOW.md or `.claude/orchestrate/SKILL.md`. To change a model or prompt, fork the plugin.
-- **Insert or reorder phases**: copy `workflow.js` into the project and edit; there is no parent-script call.
+- **Insert or reorder phases**: copy `workflows/orchestrate.js` into the project, edit, and pass it by `scriptPath`; there is no parent-script call.
 - **A project's copy must keep**: Classify, Full Verify, the Plan open-questions drop-out, the `escalations` and `resolved: false` report, and "only a passing gate marks anything resolved". It may add checks. It may not make these depend on requester self-declaration.
 - **Retry caps**: `MAX_UNIT_ITERATIONS` and `MAX_REPAIR_ROUNDS` are constants at the top of the execution section. User-only: a capped run goes back to the user; never raise them yourself.
 - **Resume**: `Workflow` returns a `runId`. After an edit or partial failure, `resumeFromRunId` replays cached phases and re-runs from the changed step. `args.answers` invalidates from Understand on.
