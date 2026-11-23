@@ -82,8 +82,20 @@ Run as `wi <subcommand>` (the plugin's `bin/` is on PATH). Root: `$WI_ROOT`, els
 | `index` | `wi index` | 0; rewrites `INDEX.md` (with a `## Needs you` section) and the design Work items blocks |
 | `validate` | `wi validate` prints `ok` | 0 ok; 1 with problems listed, `stale: run wi index` when generated files are out of date |
 | `stale [days]` | `wi stale 30` (default 60) | 0 |
+| `repo <ID> [slug]` | `wi repo E1-F4` prints the code repo path | 0; 1 if the item, slug or path is unknown, or a cockpit item has no `repos:`. Cockpit: path from the `WORKFLOW.md` Repos table (first `repos:` entry unless `slug` is given). In-repo: the enclosing git repo |
 
 An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
+
+### Background sessions (Makefile)
+`init` copies a `Makefile` into the tracker root. Run `make` there.
+
+| Target | Does |
+|---|---|
+| `make implement-<ID> [REPO=<slug>]` | Start a background session in a worktree of the item's code repo. `REPO` picks one repo of a multi-repo item |
+| `make agents` / `logs-<ID>` / `attach-<ID>` / `stop-<ID>` | List, read logs, attach, stop |
+| `make clean-worktree-<ID> [REPO=<slug>]` | Remove the leftover worktree |
+
+It finds `wi` on PATH or in the plugin cache; override with `WI=<path>`.
 
 ## 6. Rules
 - The folder is the truth. `status:` must fit the folder.

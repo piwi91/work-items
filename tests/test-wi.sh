@@ -244,5 +244,19 @@ new_tracker; mk backlog E1-F1 F P3 S; wi index >/dev/null
 grep -A2 '## Needs you' "$T/r/INDEX.md" | grep -qx 'Nothing.'; check "index Needs you says Nothing. when empty" $?
 wi bogus | grep -qF 'next [--auto] | inbox'; check "usage lists next [--auto] and inbox" $?
 
+# wi repo
+new_tracker; mkdir -p "$T/code/a" "$T/r/rel"
+printf '## Repos (cockpit mode)\n| slug | path | reaches downstream | release |\n|---|---|---|---|\n| `api` | %s | - | - |\n| web | rel | - | - |\n' "$T/code/a" > "$T/r/WORKFLOW.md"
+mk backlog E1-F1 F P3 S; setfield backlog E1-F1 repos "[api, web]"
+mk backlog E1-F2 F P3 S
+[ "$(wi repo E1-F1)" = "$T/code/a" ]; check "repo: first repos entry, backticks stripped" $?
+[ "$(wi repo E1-F1 web)" = "$T/r/rel" ]; check "repo: explicit slug, relative path resolves against tracker root" $?
+wi repo E1-F1 nope | grep -qF 'nope'; check "repo: slug not in item's repos fails" $?
+wi repo E9-F9 | grep -qF 'not found'; check "repo: unknown id fails" $?
+wi repo E1-F2 | grep -qF 'no repos: in E1-F2'; check "repo: cockpit item without repos fails" $?
+mkdir -p "$T/g/work-items/backlog"; git -C "$T/g" init -q; cp "$T/r/EPICS.md" "$T/g/work-items/"
+cp "$T/r/backlog/e1-f2-x.md" "$T/g/work-items/backlog/"
+[ "$(WI_ROOT="$T/g/work-items" bash "$WI" repo E1-F2)" = "$(cd "$T/g" && pwd -P)" ]; check "repo: in-repo tracker prints enclosing git repo" $?
+
 empty="$(mktemp -d)"; (cd "$empty" && env -u WI_ROOT bash "$WI" list 2>&1) | grep -qF '/work-items:init'; check "no-tracker error names /work-items:init" $?
 [ $fails -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }

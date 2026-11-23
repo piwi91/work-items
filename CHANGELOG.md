@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.2
+- New `wi repo <ID> [slug]` prints an item's code repo. Init ships a `Makefile` (`make implement-<ID>`) that starts a background session there.
+
 ## 0.3.1
 - Orchestrate pipeline ships as plugin workflow `work-items:orchestrate`. Fixes failed inline-script and `scriptPath` calls.
 

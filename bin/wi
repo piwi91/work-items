@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Work-item tracker helper: list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days]
+# Work-item tracker helper: list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days] | repo <ID> [slug]
 # Portable (bash 3.2 + awk): items are read from frontmatter; INDEX.md and design item tables are generated.
 set -euo pipefail
 
@@ -255,6 +255,31 @@ cmd_stale() { # [days]: open items not reviewed for N days
     isopen[$1] && ($12 == "" || $12 < cutoff) { printf "%-11s %-8s %s  %s\n", $1, $2, ($12 == "" ? "never" : $12), $9 }'
 }
 
+die() { echo "$*" >&2; exit 1; }
+
+# Code repo path for an item: the slug's row in WORKFLOW.md (cockpit), else the git repo around the tracker.
+cmd_repo() { # <ID> [slug]
+  local id="${1:?usage: repo <ID> [slug]}" slug="${2:-}" file repos path top
+  file="$(records | awk -F'\t' -v id="$id" '$2 == id { print $10 }')"
+  [[ -n "$file" ]] || die "item $id not found"
+  repos="$(awk '/^---$/ { n++; if (n == 2) exit; next } n == 1 && /^repos:/ { sub(/^repos:[ ]*/, ""); sub(/[ \t]+#.*/, ""); gsub(/[][ ]/, ""); gsub(/,/, " "); print }' "$file")"
+  if [[ -z "$repos" ]]; then
+    top="$(git rev-parse --show-toplevel 2>/dev/null)" || top=""
+    [[ -n "$top" && "$top" != "$(pwd -P)" ]] || die "no repos: in $id"
+    echo "$top"; return
+  fi
+  [[ -n "$slug" ]] || slug="${repos%% *}"
+  [[ " $repos " == *" $slug "* ]] || die "$id has no repo $slug (repos: $repos)"
+  path="$(awk -F'|' -v slug="$slug" '
+    /^## Repos/ { in_t = 1; next } /^## / { in_t = 0 }
+    in_t { a = $2; p = $3; gsub(/[ `]/, "", a); gsub(/^[ `]+|[ `]+$/, "", p); if (a == slug) { print p; exit } }' WORKFLOW.md 2>/dev/null)"
+  [[ -n "$path" ]] || die "no row for $slug in WORKFLOW.md Repos table"
+  [[ "$path" == "~"* ]] && path="$HOME${path#\~}"
+  [[ "$path" == /* ]] || path="$PWD/$path"
+  [[ -d "$path" ]] || die "repo $slug: $path is not a directory"
+  echo "$path"
+}
+
 case "${1:-list}" in
   list) cmd_list "${2:-}" ;;
   next) cmd_next "${2:-}" ;;
@@ -263,5 +288,6 @@ case "${1:-list}" in
   index) cmd_index ;;
   validate) cmd_validate ;;
   stale) cmd_stale "${2:-60}" ;;
-  *) echo "usage: wi list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days]" >&2; exit 2 ;;
+  repo) cmd_repo "${2:-}" "${3:-}" ;;
+  *) echo "usage: wi list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days] | repo <ID> [slug]" >&2; exit 2 ;;
 esac
