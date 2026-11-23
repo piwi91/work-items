@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3
+- Makefile: the item ID is case-insensitive and works as `implement-e1-f1`, `implement ID=e1-f1` or `implement e1-f1`.
+- `wi validate` fails when an item's `repos:` slug has no row in the WORKFLOW.md Repos table. `init` fills the table in cockpit mode; the tracker rules require a row whenever a new repo slug is used; unattended refine blocks the item instead.
+- `upgrade` checks the WORKFLOW.md Repos table and runs `wi repo` for every open item.
+
 ## 0.3.2
 - New `wi repo <ID> [slug]` prints an item's code repo. Init ships a `Makefile` (`make implement-<ID>`) that starts a background session there.
 

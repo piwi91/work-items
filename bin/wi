@@ -17,7 +17,7 @@ tracker_root() {
 ROOT="$(tracker_root)"
 cd "$ROOT"
 
-# One tab-separated record per item: state id epic type priority size status deps title file design last_reviewed auto
+# One tab-separated record per item: state id epic type priority size status deps title file design last_reviewed auto repos
 records() {
   local s f
   for s in $STATES; do
@@ -30,7 +30,8 @@ records() {
           if (fm["id"] == "") exit
           e = fm["epic"]; sub(/ .*/, "", e)
           d = fm["depends_on"]; gsub(/[][ ]/, "", d)
-          printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", state, fm["id"], e, fm["type"], fm["priority"], fm["size"], fm["status"], d, fm["title"], file, fm["design"], fm["last_reviewed"], fm["auto"]
+          r = fm["repos"]; gsub(/[][ ]/, "", r)
+          printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", state, fm["id"], e, fm["type"], fm["priority"], fm["size"], fm["status"], d, fm["title"], file, fm["design"], fm["last_reviewed"], fm["auto"], r
         }' "$f"
     done
   done
@@ -214,12 +215,18 @@ stale_output() { # <tmp> -> 0 when INDEX.md and design blocks match
   return 0
 }
 
+repo_slugs() {
+  awk -F'|' '/^## Repos/ { in_t = 1; next } /^## / { in_t = 0 } in_t { a = $2; gsub(/[ `]/, "", a); if (a != "") print a }' WORKFLOW.md 2>/dev/null | tr '\n' ' '
+}
+
 cmd_validate() {
   local epics rc=0 tmp; epics="$(grep -o '^## E[0-9]*' EPICS.md | sed 's/## //' | tr '\n' ' ' || true)"
-  records | awk -F'\t' -v epics="$epics" '
+  local table; table="$(repo_slugs || true)"
+  records | awk -F'\t' -v epics="$epics" -v table="$table" '
     function bad_(msg) { print msg; bad = 1 }
     BEGIN {
       split(epics, e, " "); for (i in e) epic[e[i]] = 1
+      split(table, t, " "); for (i in t) known[t[i]] = 1
       allowed["backlog"] = " backlog "; allowed["refined"] = " refined draft blocked "
       allowed["in-progress"] = " in-progress blocked needs-attention "
       allowed["in-review"] = " in-review needs-attention "; allowed["completed"] = " completed dropped "
@@ -234,6 +241,7 @@ cmd_validate() {
     index(allowed[$1], " " $7 " ") == 0 { bad_($10 ": status " $7 " does not fit folder " $1) }
     { slug = $10; sub(/^[^\/]*\//, "", slug); if (index(slug, tolower($2) "-") != 1) bad_($10 ": slug must start with " tolower($2) "-") }
     $11 != "" && $11 != "—" && system("test -f \"" $11 "\"") != 0 { bad_($10 ": design file not found: " $11) }
+    $14 != "" { n = split($14, r, ","); for (i = 1; i <= n; i++) if (!(r[i] in known)) bad_($10 ": repo " r[i] " not in WORKFLOW.md Repos table") }
     !($3 in epic) { bad_($10 ": epic " $3 " not in EPICS.md") }
     END {
       for (id in count) if (count[id] > 1) bad_("duplicate " id ":" where[id])

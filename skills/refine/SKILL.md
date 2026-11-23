@@ -15,7 +15,7 @@ Turn one backlog item into a ready spec. Interactive. No implementation.
 1. **Resolve** in `backlog/`. Not found → offer `/work-items:backlog`. Never invent an item.
 2. **Context**: read the item, its epic rationale, `DECISIONS.md`, the `design:` doc if set (the source of truth for *how*, don't re-argue it), WORKFLOW.md, and the code repo's conventions docs. A spec must not contradict a `DECISIONS.md` row.
 3. **Deps**: find undelivered items or components this needs. Record IDs in `depends_on`, the why in `## Dependencies`.
-4. **Repo impact** (cockpit mode): start where the change originates, walk WORKFLOW.md's downstream column, set `repos:` in delivery order (producer first). Drop a repo with no concrete change. Too big → propose a split per repo.
+4. **Repo impact** (cockpit mode): start where the change originates, walk WORKFLOW.md's downstream column, set `repos:` in delivery order (producer first); a slug missing from the Repos table gets a row (see tracker rules). Drop a repo with no concrete change. Too big → propose a split per repo.
 5. **Ask the requester first**: goal, why now, constraints, scope limits. One round. "Nothing to add" is fine.
 6. **Research**: `work-items:researcher` agent on the current state. Is it already done? Which pattern should it follow? Already fully delivered → ask whether to close it with `backlog drop`.
 7. **Draft**: `work-items:plan` agent with item + research + design. Output: the recommended approach and why it beats the alternatives, the conventions that apply, the minimal slice. This opens the grilling; it is not the answer.
@@ -54,7 +54,7 @@ One path, all sizes. Used by `auto` and `implement --autonomous`. Never asks the
 
 | Result | Write |
 |---|---|
-| any decision still open | `refined/`, `status: blocked`, `## Open decisions` |
+| any decision still open (including a `repos:` slug with no Repos row: no row is added until a human answers) | `refined/`, `status: blocked`, `## Open decisions` |
 | XS/S, none open | `refined/`, `status: refined` (buildable) |
 | M or larger, none open | `refined/`, `status: draft` (waits for human approval via `/work-items:unblock`) |
 

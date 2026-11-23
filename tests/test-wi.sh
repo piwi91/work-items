@@ -257,6 +257,21 @@ wi repo E1-F2 | grep -qF 'no repos: in E1-F2'; check "repo: cockpit item without
 mkdir -p "$T/g/work-items/backlog"; git -C "$T/g" init -q; cp "$T/r/EPICS.md" "$T/g/work-items/"
 cp "$T/r/backlog/e1-f2-x.md" "$T/g/work-items/backlog/"
 [ "$(WI_ROOT="$T/g/work-items" bash "$WI" repo E1-F2)" = "$(cd "$T/g" && pwd -P)" ]; check "repo: in-repo tracker prints enclosing git repo" $?
+wi validate | grep -qF 'repo api not in' && r=1 || r=0; check "validate: repos slug in table passes" $r
+mk backlog E1-F3 F P3 S; setfield backlog E1-F3 repos "[api, zzz]"
+validate_fails_with "validate: repos slug missing from WORKFLOW.md table fails" "e1-f3-x.md: repo zzz not in WORKFLOW.md Repos table"
+rm "$T/r/backlog/e1-f3-x.md"
+
+# skeleton Makefile: ID in any case, three call forms
+MK="$(cd "$(dirname "$0")/.." && pwd)/skills/init/skeleton/Makefile"
+mkcheck() { out="$(WI=/bin/echo make -n -f "$MK" "$@" 2>&1)"
+  for want in '--worktree e1-f1' '--name E1-F1' '/work-items:implement E1-F1 '; do
+    printf '%s' "$out" | grep -qF -- "$want" || return 1; done; }
+mkcheck implement-e1-f1; check "make: implement-e1-f1" $?
+mkcheck implement ID=e1-f1; check "make: implement ID=e1-f1" $?
+mkcheck implement e1-f1; check "make: implement e1-f1" $?
+mkcheck implement-E1-f1; check "make: mixed case" $?
+(WI=/bin/echo make -f "$MK" implement 2>&1) | grep -qF 'missing ID'; check "make: missing ID errors" $?
 
 empty="$(mktemp -d)"; (cd "$empty" && env -u WI_ROOT bash "$WI" list 2>&1) | grep -qF '/work-items:init'; check "no-tracker error names /work-items:init" $?
 [ $fails -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }

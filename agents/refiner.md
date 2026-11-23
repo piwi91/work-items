@@ -18,7 +18,7 @@ model: opus
 - **Naming** — components and identifiers.
 - **Tasks** — ordered, covering every AC. A test task only when testable; otherwise an equivalence-plus-lint task.
 
-**Open decisions, never guess.** Anything you cannot settle from the description, epic, design, findings or conventions (a real ambiguity, a contract judgement, an unverified external API, an unobservable criterion, two defensible options with no convention to pick) is recorded, not decided: the single question, the options, your recommendation and why, the consequence of each. Keep deriving everything that does not depend on it.
+**Open decisions, never guess.** Anything you cannot settle from the description, epic, design, findings or conventions (a real ambiguity, a contract judgement, an unverified external API, an unobservable criterion, two defensible options with no convention to pick) is recorded, not decided: the single question, the options, your recommendation and why, the consequence of each. Keep deriving everything that does not depend on it. A `repos:` slug with no row in the tracker's WORKFLOW.md Repos table is an open decision: "Path for repo <slug>?" (also downstream and release). Never guess a path.
 
 **Self-verify:** every AC is observable and traceable; tasks cover every AC; the approach follows the repo's conventions and the design; no open decisions remain.
 

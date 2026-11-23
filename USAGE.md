@@ -80,7 +80,7 @@ Run as `wi <subcommand>` (the plugin's `bin/` is on PATH). Root: `$WI_ROOT`, els
 | `inbox` | `wi inbox` | 0; rows `<kind> <id> <state-dir> holds=<n> <title>`, kinds `decision` (blocked), `failed` (needs-attention), `approve` (draft), `refine` (backlog, `auto: no`); most-blocking first |
 | `nextid <E<n>> <F\|B>` | `wi nextid E1 F` prints `E1-F4` | 0; 1 without args |
 | `index` | `wi index` | 0; rewrites `INDEX.md` (with a `## Needs you` section) and the design Work items blocks |
-| `validate` | `wi validate` prints `ok` | 0 ok; 1 with problems listed, `stale: run wi index` when generated files are out of date |
+| `validate` | `wi validate` prints `ok` | 0 ok; 1 with problems listed, `stale: run wi index` when generated files are out of date. Also fails when an item's `repos:` slug has no row in the WORKFLOW.md Repos table |
 | `stale [days]` | `wi stale 30` (default 60) | 0 |
 | `repo <ID> [slug]` | `wi repo E1-F4` prints the code repo path | 0; 1 if the item, slug or path is unknown, or a cockpit item has no `repos:`. Cockpit: path from the `WORKFLOW.md` Repos table (first `repos:` entry unless `slug` is given). In-repo: the enclosing git repo |
 
@@ -91,9 +91,11 @@ An unknown subcommand prints usage and exits 2. No tracker found: exit 1.
 
 | Target | Does |
 |---|---|
-| `make implement-<ID> [REPO=<slug>]` | Start a background session in a worktree of the item's code repo. `REPO` picks one repo of a multi-repo item |
+| `make implement-<ID> [REPO=<slug>]` (also `make implement <ID>`, `make implement ID=<ID>`) | Start a background session in a worktree of the item's code repo. `REPO` picks one repo of a multi-repo item |
 | `make agents` / `logs-<ID>` / `attach-<ID>` / `stop-<ID>` | List, read logs, attach, stop |
 | `make clean-worktree-<ID> [REPO=<slug>]` | Remove the leftover worktree |
+
+The ID is case-insensitive in every form (`e1-f1` = `E1-F1`); this holds for `logs`, `attach`, `stop` and `clean-worktree` too.
 
 It finds `wi` on PATH or in the plugin cache; override with `WI=<path>`.
 

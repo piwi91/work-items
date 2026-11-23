@@ -13,4 +13,6 @@ Copy `${CLAUDE_SKILL_DIR}/skeleton/` into the tracker root, never overwriting an
 
 Ask: in-repo or cockpit, commit policy, worktree yes/no. Offer to add to the project's CLAUDE.md the line `Work items: tracked in work-items/ with /work-items:* commands (see work-items/WORKFLOW.md).` and, when missing, `## Testing` (tiers, commands, paths, gotchas) and `## Docs` (doc locations, changelog, agent guidance) filled from the repo.
 
+Cockpit: for each code repo ask slug, path, repos it reaches downstream, release (`tag` or `-`), and write the rows into the WORKFLOW.md Repos table. In-repo: leave the table empty, that is fine.
+
 Run `wi index`, `wi validate`, commit.
