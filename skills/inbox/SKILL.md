@@ -8,7 +8,7 @@ allowed-tools: Read, Bash
 
 Read `${CLAUDE_PLUGIN_ROOT}/reference/tracker.md` first.
 
-Run `wi inbox`, print it. No edits.
+Run `wi inbox`, print it. If a sprint in `sprints/` has `status: active`, print one line above the list: `Sprint S<n> — <title>: <goal> (<d> days left; past `end`: `overdue <d> days`)`. No `sprints/` or no active sprint → nothing extra. No edits.
 
 Rows: `<kind> <id> <state-dir> holds=<n> <title>`.
 

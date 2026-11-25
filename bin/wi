@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Work-item tracker helper: list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days] | repo <ID> [slug]
+# Work-item tracker helper: list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | nextid S | index | validate | stale [days] | repo <ID> [slug]
 # Portable (bash 3.2 + awk): items are read from frontmatter; INDEX.md and design item tables are generated.
 set -euo pipefail
 
@@ -17,7 +17,7 @@ tracker_root() {
 ROOT="$(tracker_root)"
 cd "$ROOT"
 
-# One tab-separated record per item: state id epic type priority size status deps title file design last_reviewed auto repos
+# One tab-separated record per item: state id epic type priority size status deps title file design last_reviewed auto repos sprint
 records() {
   local s f
   for s in $STATES; do
@@ -31,7 +31,7 @@ records() {
           e = fm["epic"]; sub(/ .*/, "", e)
           d = fm["depends_on"]; gsub(/[][ ]/, "", d)
           r = fm["repos"]; gsub(/[][ ]/, "", r)
-          printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", state, fm["id"], e, fm["type"], fm["priority"], fm["size"], fm["status"], d, fm["title"], file, fm["design"], fm["last_reviewed"], fm["auto"], r
+          printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", state, fm["id"], e, fm["type"], fm["priority"], fm["size"], fm["status"], d, fm["title"], file, fm["design"], fm["last_reviewed"], fm["auto"], r, fm["sprint"]
         }' "$f"
     done
   done
@@ -41,6 +41,21 @@ epic_focus() { # "E<n> now|later" lines from EPICS.md
   awk '/^## E[0-9]+ / { e = $2 } e && /^focus:/ { print e, $2 }' EPICS.md
 }
 
+# One tab-separated row per sprint file: id title status start end file has_review
+sprint_rows() {
+  local f
+  for f in sprints/*.md; do
+    [[ -e "$f" ]] || continue
+    awk -v file="$f" '
+      /^## Review/ { review = 1 }
+      /^---$/ { n++; if (n == 2) fmdone = 1; next }
+      n == 1 && !fmdone { k = $0; sub(/:.*/, "", k); v = $0; sub(/^[^:]*:[ ]*/, "", v); sub(/[ \t]+#.*/, "", v); fm[k] = v }
+      END { printf "%s\t%s\t%s\t%s\t%s\t%s\t%d\n", fm["id"], fm["title"], fm["status"], fm["start"], fm["end"], file, review }' "$f"
+  done
+}
+
+active_sprint() { sprint_rows | awk -F'\t' '$3 == "active" { print $1; exit }'; }
+
 cmd_list() {
   local want="${1:-}"
   records | awk -F'\t' -v want="$want" '
@@ -49,13 +64,13 @@ cmd_list() {
 
 # Pick-up ladder: deps done → epic focus → priority → unblock weight → bug first → smaller → ID.
 cmd_next() { # [--auto]: prefix rows with build|refine|draft, skip auto: no
-  { epic_focus | sed 's/^/F\t/; s/ /\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' -v open="$OPEN_STATES" -v auto="${1:-}" -v root="$ROOT" '
+  { epic_focus | sed 's/^/F\t/; s/ /\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' -v open="$OPEN_STATES" -v auto="${1:-}" -v root="$ROOT" -v active="$(active_sprint)" '
     BEGIN {
       if (root ~ / /) root = "\047" root "\047"
       make = (root == ".") ? "make" : "make -C " root
       split(open, o, " "); for (i in o) isopen[o[i]] = 1 }
     $1 == "F" { focus[$2] = $3; next }
-    { st[$3] = $2; ep[$3] = $4; ty[$3] = $5; pr[$3] = $6; sz[$3] = $7; status[$3] = $8; deps[$3] = $9; ti[$3] = $10; au[$3] = $14; rp[$3] = $15 }
+    { st[$3] = $2; ep[$3] = $4; ty[$3] = $5; pr[$3] = $6; sz[$3] = $7; status[$3] = $8; deps[$3] = $9; ti[$3] = $10; au[$3] = $14; rp[$3] = $15; sp[$3] = $16 }
     END {
       for (id in st) if (isopen[st[id]]) { n = split(deps[id], d, ","); for (i = 1; i <= n; i++) fanin[d[i]]++ }
       split("XS S M L XL XXL", sizes, " "); for (i in sizes) srank[sizes[i]] = i
@@ -66,6 +81,7 @@ cmd_next() { # [--auto]: prefix rows with build|refine|draft, skip auto: no
         ready = 1; n = split(deps[id], d, ",")
         for (i = 1; i <= n; i++) if (d[i] != "" && (st[d[i]] != "completed" || status[d[i]] == "dropped")) ready = 0
         if (!ready) continue
+        a = (active != "" && sp[id] == active) ? 0 : 1
         f = (focus[ep[id]] == "now") ? 0 : ((focus[ep[id]] == "later") ? 2 : 1)
         p = (pr[id] == "") ? "P3" : pr[id]
         s = (sz[id] in srank) ? srank[sz[id]] : 3
@@ -74,7 +90,7 @@ cmd_next() { # [--auto]: prefix rows with build|refine|draft, skip auto: no
         act = ""
         if (auto != "") act = (st[id] == "refined") ? "build   " : ((s <= 2) ? "refine  " : "draft   ")
         start = (st[id] == "refined") ? "\t" make " implement-" id : ""
-        printf "%d%s%03d%d%d%04d%04d\t%s%-8s %-8s %-3s %-2s %-3s %-12s %s%s\n", f, p, 999 - fanin[id], ((ty[id] == "B") ? 0 : 1), s, en, mn, act, id, st[id], p, ty[id], sz[id], (rp[id] == "") ? "-" : rp[id], ti[id], start
+        printf "%d%d%s%03d%d%d%04d%04d\t%s%-8s %-8s %-3s %-2s %-3s %-12s %s%s\n", a, f, p, 999 - fanin[id], ((ty[id] == "B") ? 0 : 1), s, en, mn, act, id, st[id], p, ty[id], sz[id], (rp[id] == "") ? "-" : rp[id], ti[id], start
       }
     }' | sort | cut -f2-
 }
@@ -115,7 +131,12 @@ gen_needs_you() {
   inbox_rows | awk -F'\t' '{ printf "| %s | [%s](%s) | %d | %s |\n", $1, $2, $6, $4, $5 }'
 }
 
-cmd_nextid() { # E<n> F|B
+cmd_nextid_sprint() {
+  sprint_rows | awk -F'\t' '$1 ~ /^S[0-9]+$/ { n = substr($1, 2) + 0; if (n > max) max = n } END { print "S" (max + 1) }'
+}
+
+cmd_nextid() { # E<n> F|B, or S
+  [[ "${1:-}" == S ]] && { cmd_nextid_sprint; return; }
   local epic="${1:?usage: nextid E<n> F|B}" type="${2:?usage: nextid E<n> F|B}"
   records | awk -F'\t' -v pre="$epic-$type" '
     index($2, pre) == 1 { n = substr($2, length(pre) + 1) + 0; if (n > max) max = n }
@@ -147,12 +168,37 @@ gen_open_tables() { # sorted open records on stdin (cut to records), EPICS.md as
     }' "$1" -
 }
 
-design_status() { awk '/^---$/ { n++; if (n == 2) exit; next } n == 1 && /^status:/ { sub(/^status:[ ]*/, ""); sub(/[ \t]+#.*/, ""); print; exit }' "$1"; }
+fm_field() { # <file> <key>: first frontmatter value
+  awk -v key="$2" '/^---$/ { n++; if (n == 2) exit; next } n == 1 && index($0, key ":") == 1 { sub(/^[^:]*:[ ]*/, ""); sub(/[ \t]+#.*/, ""); print; exit }' "$1"
+}
+
+design_status() { fm_field "$1" status; }
 
 gen_design_table() { # <design path>: items pointing at it, ID order, links relative to design/
   keyed_records | sort -t "$TAB" -k2,2 | cut -f3- | awk -F'\t' -v d="$1" '
     BEGIN { print "| ID | Title | State |"; print "|---|---|---|" }
     $11 == d { printf "| [%s](../%s) | %s | %s |\n", $2, $10, $9, $1 }'
+}
+
+gen_sprint_table() { # <sprint id>: its items, ID order, links relative to sprints/
+  keyed_records | sort -t "$TAB" -k2,2 | cut -f3- | awk -F'\t' -v s="$1" '
+    BEGIN { print "| ID | Title | Size | Status |"; print "|---|---|---|---|" }
+    $15 == s { printf "| [%s](../%s) | %s | %s | %s |\n", $2, $10, $9, $6, $7 }'
+}
+
+gen_sprints() {
+  echo; echo '## Sprints'; echo
+  if [[ -z "$(sprint_rows)" ]]; then echo 'None.'; return; fi
+  echo '| Sprint | Title | Status | Start | End | Items |'; echo '|---|---|---|---|---|---|'
+  { sprint_rows | sed 's/^/S\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' '
+    $1 == "S" { id[++n] = $2; row[$2] = $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7; next }
+    $16 != "" { total[$16]++; if ($2 != "completed") open[$16]++ }
+    END {
+      for (i = 1; i <= n; i++) {
+        split(row[id[i]], c, "\t")
+        printf "%06d\t| [%s](%s) | %s | %s | %s | %s | %d/%d |\n", substr(id[i], 2) + 0, id[i], c[5], c[1], c[2], c[3], c[4], open[id[i]], total[id[i]]
+      }
+    }' | sort -n | cut -f2-
 }
 
 gen_index() { # EPICS.md is read from the cwd
@@ -161,6 +207,7 @@ gen_index() { # EPICS.md is read from the cwd
   echo '# Index'; echo
   gen_needs_you
   keyed_records | sort -t "$TAB" -k1,1n -k2,2 | cut -f3- | gen_open_tables EPICS.md
+  [[ -d sprints ]] && gen_sprints
   echo; echo '## Designs'; echo
   echo '| Design | Status | Items |'; echo '|---|---|---|'
   for f in design/*.md; do
@@ -182,8 +229,8 @@ gen_index() { # EPICS.md is read from the cwd
 
 has_markers() { grep -qx '<!-- wi:items -->' "$1" && grep -qx '<!-- /wi:items -->' "$1"; }
 
-gen_design_file() { # <design path>
-  local t; t="$(mktemp)"; gen_design_table "$1" > "$t"
+gen_marked_file() { # <file> <table fn> <table fn arg>: refill the wi:items block
+  local t; t="$(mktemp)"; "$2" "$3" > "$t"
   awk -v t="$t" '
     /^<!-- wi:items -->$/ { print; while ((getline line < t) > 0) print line; skip = 1; next }
     /^<!-- \/wi:items -->$/ { skip = 0 }
@@ -191,12 +238,19 @@ gen_design_file() { # <design path>
   rm -f "$t"
 }
 
-gen_all() { # <outdir>: candidate INDEX.md and marked designs
-  local f
+gen_all() { # <outdir>: candidate INDEX.md, marked designs and sprints
+  local f id
   mkdir -p "$1/design"
   gen_index > "$1/INDEX.md"
   for f in design/*.md; do
-    [[ -e "$f" ]] && has_markers "$f" && gen_design_file "$f" > "$1/$f"
+    [[ -e "$f" ]] && has_markers "$f" && gen_marked_file "$f" gen_design_table "$f" > "$1/$f"
+  done
+  [[ -d sprints ]] || return 0
+  mkdir -p "$1/sprints"
+  for f in sprints/*.md; do
+    [[ -e "$f" ]] && has_markers "$f" || continue
+    id="$(fm_field "$f" id)"
+    [[ -n "$id" ]] && gen_marked_file "$f" gen_sprint_table "$id" > "$1/$f"
   done
   return 0
 }
@@ -205,6 +259,7 @@ cmd_index() {
   local tmp f; tmp="$(mktemp -d)"; gen_all "$tmp"
   cp "$tmp/INDEX.md" INDEX.md
   for f in "$tmp"/design/*.md; do [[ -e "$f" ]] && cp "$f" "design/$(basename "$f")"; done
+  for f in "$tmp"/sprints/*.md; do [[ -e "$f" ]] && cp "$f" "sprints/$(basename "$f")"; done
   rm -rf "$tmp"
   return 0
 }
@@ -216,11 +271,40 @@ stale_output() { # <tmp> -> 0 when INDEX.md and design blocks match
   for f in "$1"/design/*.md; do
     [[ -e "$f" ]] && ! cmp -s "$f" "design/$(basename "$f")" && return 1
   done
+  for f in "$1"/sprints/*.md; do
+    [[ -e "$f" ]] && ! cmp -s "$f" "sprints/$(basename "$f")" && return 1
+  done
   return 0
 }
 
 repo_slugs() {
   awk -F'|' '/^## Repos/ { in_t = 1; next } /^## / { in_t = 0 } in_t { a = $2; gsub(/[ `]/, "", a); if (a != "") print a }' WORKFLOW.md 2>/dev/null | tr '\n' ' '
+}
+
+validate_sprints() { # item sprint refs always; sprint file rules only with sprints/
+  local ids=""
+  [[ -d sprints ]] && ids="$(sprint_rows | cut -f1 | tr '\n' ' ')"
+  { sprint_rows | sed 's/^/S\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' -v ids="$ids" -v has_dir="$([[ -d sprints ]] && echo 1 || echo 0)" '
+    function bad_(msg) { print msg; bad = 1 }
+    BEGIN { split(ids, a, " "); for (i in a) known[a[i]] = 1 }
+    $1 == "S" {
+      id = $2; file = $7; slug = file; sub(/^[^\/]*\//, "", slug)
+      if (id !~ /^S[0-9]+$/) bad_(file ": bad sprint id " id)
+      else if (index(tolower(slug), tolower(id) "-") != 1) bad_(file ": slug must start with " id "-")
+      if (seen[id]++) bad_(file ": duplicate sprint " id)
+      if ($3 == "") bad_(file ": missing title")
+      if ($4 !~ /^(planned|active|review|closed)$/) bad_(file ": bad status " $4)
+      if ($5 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) bad_(file ": bad start " $5)
+      if ($6 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) bad_(file ": bad end " $6)
+      if ($4 == "active" && ++active > 1) bad_(file ": more than one active sprint")
+      if ($4 == "closed" && $8 != 1) bad_(file ": closed sprint needs a ## Review section")
+      next
+    }
+    $16 != "" {
+      if (!has_dir) bad_($11 ": sprint " $16 " but there is no sprints/ directory")
+      else if (!($16 in known)) bad_($11 ": sprint " $16 " not found in sprints/")
+    }
+    END { exit bad }'
 }
 
 cmd_validate() {
@@ -252,6 +336,7 @@ cmd_validate() {
       for (id in deps) { n = split(deps[id], d, ","); for (i = 1; i <= n; i++) if (d[i] != "" && !(d[i] in st)) bad_(id ": unknown dependency " d[i]) }
       exit bad
     }' || rc=1
+  validate_sprints || rc=1
   tmp="$(mktemp -d)"
   stale_output "$tmp" || { echo "stale: run wi index"; rc=1; }
   rm -rf "$tmp"
@@ -301,5 +386,5 @@ case "${1:-list}" in
   validate) cmd_validate ;;
   stale) cmd_stale "${2:-60}" ;;
   repo) cmd_repo "${2:-}" "${3:-}" ;;
-  *) echo "usage: wi list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | index | validate | stale [days] | repo <ID> [slug]" >&2; exit 2 ;;
+  *) echo "usage: wi list [state] | next [--auto] | inbox | nextid <E<n>> <F|B> | nextid S | index | validate | stale [days] | repo <ID> [slug]" >&2; exit 2 ;;
 esac

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+- New `/work-items:sprint` (`plan`, `start`, `close`, `status`): optional sprints with a goal, dates and an optional demo, in `sprints/`.
+- Items join a sprint with `sprint: S<n>`. `wi next` ranks active-sprint items first; `wi index` lists sprints; `wi validate` checks them; `wi nextid S`.
+- `next` and `inbox` print the active sprint on top.
+- Sprints are optional: a tracker without `sprints/` is unchanged.
+
 ## 0.3.5
 - Tracker git from a code-repo worktree session runs as plain `git -C "$WI_ROOT"` commands, one per call, so the session can update the tracker itself.
 

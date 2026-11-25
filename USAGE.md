@@ -58,6 +58,7 @@ Fill `WORKFLOW.md` (created by `init`):
 | `/work-items:backlog drop <item> <reason>` | Obsolete item | moves to `completed/`, `status: dropped` | no |
 | `/work-items:next [--auto]` | Pick work | nothing (top 10 of `wi next`) | no |
 | `/work-items:inbox` | What needs you | nothing (`wi inbox`) | no |
+| `/work-items:sprint plan\|start\|close\|status` | Optional time-boxed goal | `sprints/<slug>.md`, `sprint:` in items | on plan and close |
 | `/work-items:refine <item>` | Make it ready | `refined/<slug>.md` | yes |
 | `/work-items:implement <item>... [--autonomous]` | Build it | branch, PR, `in-review/<slug>.md` | no with `--autonomous`, else yes |
 | `/work-items:unblock [item]` | Item is `blocked` or `draft` | answers or approval in the item, status back | yes |
@@ -115,7 +116,7 @@ It finds `wi` on PATH or in the plugin cache; override with `WI=<path>`.
 
 | Interactive, needs the user | Safe unattended |
 |---|---|
-| `init`, `upgrade`, `design`, `backlog` (except `list`), `refine`, `unblock`, `implement` without `--autonomous` | `auto`, `implement --autonomous`, `merge`, `sync`, `next`, `inbox`, `validate`, `backlog list` |
+| `init`, `upgrade`, `design`, `backlog` (except `list`), `sprint` (except `status`), `refine`, `unblock`, `implement` without `--autonomous` | `auto`, `implement --autonomous`, `merge`, `sync`, `next`, `inbox`, `validate`, `backlog list` |
 
 4. No skills available? Create an item by hand:
    1. `wi nextid E<n> F` (or `B`). Result is the ID, for example `E1-F4`.
