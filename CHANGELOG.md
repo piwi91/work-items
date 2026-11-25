@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.5
+- Tracker git from a code-repo worktree session runs as plain `git -C "$WI_ROOT"` commands, one per call, so the session can update the tracker itself.
+
 ## 0.3.4
 - `wi next` rows show the item's repo. Refined rows end with a copy/paste `make -C <root> implement-<ID>` command.
 

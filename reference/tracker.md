@@ -63,4 +63,5 @@ Finish before you start: `sync` → `/work-items:merge --all` → `unblock` → 
 
 ## Git
 - **Tracker commits**: default is straight to the default branch (pull/rebase first; explicit pathspecs, never `git add -A`). WORKFLOW.md may say `tracker-commits: branch`; then tracker edits ride the item's PR, and `sync` opens a small PR.
+- **Tracker git from a code-repo session** (WI_ROOT set, e.g. `make implement`): run each git command alone as `git -C "$WI_ROOT" <cmd>`: one git command per Bash call, no `cd`, `&&` chains, variables or subshells around it. Edit item files with Edit/Write, not sed/printf. If a git command is refused, split it further and retry; never hand the tracker step back to the user.
 - **Code**: branch `claude/<slug>-<4char>` → PR, one per repo. Stacked PRs for in-run deps. Worktree or in place: WORKFLOW.md `worktree: yes|no`, else ask before starting.
