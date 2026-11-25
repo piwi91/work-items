@@ -49,10 +49,13 @@ cmd_list() {
 
 # Pick-up ladder: deps done → epic focus → priority → unblock weight → bug first → smaller → ID.
 cmd_next() { # [--auto]: prefix rows with build|refine|draft, skip auto: no
-  { epic_focus | sed 's/^/F\t/; s/ /\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' -v open="$OPEN_STATES" -v auto="${1:-}" '
-    BEGIN { split(open, o, " "); for (i in o) isopen[o[i]] = 1 }
+  { epic_focus | sed 's/^/F\t/; s/ /\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' -v open="$OPEN_STATES" -v auto="${1:-}" -v root="$ROOT" '
+    BEGIN {
+      if (root ~ / /) root = "\047" root "\047"
+      make = (root == ".") ? "make" : "make -C " root
+      split(open, o, " "); for (i in o) isopen[o[i]] = 1 }
     $1 == "F" { focus[$2] = $3; next }
-    { st[$3] = $2; ep[$3] = $4; ty[$3] = $5; pr[$3] = $6; sz[$3] = $7; status[$3] = $8; deps[$3] = $9; ti[$3] = $10; au[$3] = $14 }
+    { st[$3] = $2; ep[$3] = $4; ty[$3] = $5; pr[$3] = $6; sz[$3] = $7; status[$3] = $8; deps[$3] = $9; ti[$3] = $10; au[$3] = $14; rp[$3] = $15 }
     END {
       for (id in st) if (isopen[st[id]]) { n = split(deps[id], d, ","); for (i = 1; i <= n; i++) fanin[d[i]]++ }
       split("XS S M L XL XXL", sizes, " "); for (i in sizes) srank[sizes[i]] = i
@@ -70,7 +73,8 @@ cmd_next() { # [--auto]: prefix rows with build|refine|draft, skip auto: no
         rest = substr(id, RSTART + RLENGTH); match(rest, /[0-9]+/); mn = substr(rest, RSTART, RLENGTH)
         act = ""
         if (auto != "") act = (st[id] == "refined") ? "build   " : ((s <= 2) ? "refine  " : "draft   ")
-        printf "%d%s%03d%d%d%04d%04d\t%s%-8s %-8s %-3s %-2s %-3s %s\n", f, p, 999 - fanin[id], ((ty[id] == "B") ? 0 : 1), s, en, mn, act, id, st[id], p, ty[id], sz[id], ti[id]
+        start = (st[id] == "refined") ? "\t" make " implement-" id : ""
+        printf "%d%s%03d%d%d%04d%04d\t%s%-8s %-8s %-3s %-2s %-3s %-12s %s%s\n", f, p, 999 - fanin[id], ((ty[id] == "B") ? 0 : 1), s, en, mn, act, id, st[id], p, ty[id], sz[id], (rp[id] == "") ? "-" : rp[id], ti[id], start
       }
     }' | sort | cut -f2-
 }

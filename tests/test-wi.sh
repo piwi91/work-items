@@ -199,6 +199,13 @@ actions="$(wi next --auto | awk '{print $1 ":" $2}' | sort | tr '\n' ' ')"
 wi next | grep -qw E1-F8; [ $? -ne 0 ]; check "next skips draft items" $?
 wi next | grep -qw E1-F7; check "next without --auto still lists auto: no items" $?
 
+new_tracker; mk refined E1-F1 F P3 S; setfield refined E1-F1 repos "[api, web]"; mk backlog E1-F2 F P3 S; setfield backlog E1-F2 repos "[api]"; mk refined E1-F3 F P3 S
+row() { wi next | grep -w "$1"; }
+row E1-F1 | grep -qF "api,web"; check "next: row shows repos as api,web" $?
+[ "$(row E1-F1 | cut -f2)" = "make -C $T/r implement-E1-F1" ]; check "next: refined item ends with make -C <root> implement-<ID>" $?
+row E1-F2 | grep -q make; [ $? -ne 0 ]; check "next: backlog item has no make command" $?
+row E1-F3 | grep -qE ' - +T E1-F3'; check "next: item without repos shows -" $?
+
 new_tracker; mk backlog E1-F1 F P3 S; setfield backlog E1-F1 status draft
 validate_fails_with "draft in backlog fails" "status draft does not fit folder backlog"
 new_tracker; mk in-progress E1-F1 F P3 S; setfield in-progress E1-F1 status draft

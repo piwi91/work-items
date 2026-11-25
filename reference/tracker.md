@@ -51,7 +51,7 @@ Status per folder: backlog → `backlog`; refined → `refined`, `draft`, `block
 Default sizes: **XS** one file/component, a few lines. **S** one component, tightly scoped, no contract change. **M** non-trivial, or 2 components. **L+** several components, a new contract/API/schema, or a security/isolation change. A WORKFLOW.md rubric replaces this.
 
 ## Pick-up order (`wi next`)
-Deps completed (a dropped dep never counts) → epic `focus: now` first, `later` last → priority → most dependents first → bug before feature → smaller first → ID. Blocked, draft and dropped items are skipped. `wi next --auto` also skips `auto: no` and prefixes each row `<action> <ID> <state> <P> <type> <size> <title>` (action `build` = refined, `refine` = XS/S backlog, `draft` = M+ backlog; a missing size counts as M).
+Deps completed (a dropped dep never counts) → epic `focus: now` first, `later` last → priority → most dependents first → bug before feature → smaller first → ID. Blocked, draft and dropped items are skipped. `wi next --auto` also skips `auto: no` and prefixes each row `<action> <ID> <state> <P> <type> <size> <repo> <title>` (refined rows end with a tab and `make -C <root> implement-<ID>`) (action `build` = refined, `refine` = XS/S backlog, `draft` = M+ backlog; a missing size counts as M).
 Finish before you start: `sync` → `/work-items:merge --all` → `unblock` → `wi stale` and review or drop what it lists → only then new items. Reviewed and kept → set `last_reviewed` to today; obsolete → `/work-items:backlog drop`.
 
 ## Gates
