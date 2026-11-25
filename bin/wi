@@ -124,11 +124,14 @@ inbox_rows() {
 
 cmd_inbox() { inbox_rows | awk -F'\t' '{ printf "%s %s %s holds=%d %s\n", $1, $2, $3, $4, $5 }'; }
 
+# awk helper: escape | so free text stays inside one markdown table cell
+AWK_ESC='function esc(s) { gsub(/\|/, "\\|", s); return s }'
+
 gen_needs_you() {
   echo '## Needs you'; echo
   if [[ -z "$(inbox_rows)" ]]; then echo 'Nothing.'; return; fi
   echo '| Kind | Item | Holds | Title |'; echo '|---|---|---|---|'
-  inbox_rows | awk -F'\t' '{ printf "| %s | [%s](%s) | %d | %s |\n", $1, $2, $6, $4, $5 }'
+  inbox_rows | awk -F'\t' "$AWK_ESC"' { printf "| %s | [%s](%s) | %d | %s |\n", $1, $2, $6, $4, esc($5) }'
 }
 
 cmd_nextid_sprint() {
@@ -154,12 +157,12 @@ keyed_records() {
 }
 
 gen_open_tables() { # sorted open records on stdin (cut to records), EPICS.md as arg
-  awk -F'\t' '
+  awk -F'\t' "$AWK_ESC"'
     FNR == NR { if ($0 ~ /^## E[0-9]+ /) { split($0, a, " "); e = a[2]; order[++n] = e; title[e] = $0 } ; next }
     $1 == "completed" { next }
     {
       id = "[" $2 "](" $10 ")"; d = $8; gsub(/,/, ", ", d)
-      rows[$3] = rows[$3] "| " id " | " $9 " | " $1 " | " $7 " | " $5 " | " $6 " | " d " |\n"
+      rows[$3] = rows[$3] "| " id " | " esc($9) " | " $1 " | " $7 " | " $5 " | " $6 " | " d " |\n"
     }
     END {
       for (i = 1; i <= n; i++) if (rows[order[i]] != "") {
@@ -175,28 +178,28 @@ fm_field() { # <file> <key>: first frontmatter value
 design_status() { fm_field "$1" status; }
 
 gen_design_table() { # <design path>: items pointing at it, ID order, links relative to design/
-  keyed_records | sort -t "$TAB" -k2,2 | cut -f3- | awk -F'\t' -v d="$1" '
+  keyed_records | sort -t "$TAB" -k2,2 | cut -f3- | awk -F'\t' -v d="$1" "$AWK_ESC"'
     BEGIN { print "| ID | Title | State |"; print "|---|---|---|" }
-    $11 == d { printf "| [%s](../%s) | %s | %s |\n", $2, $10, $9, $1 }'
+    $11 == d { printf "| [%s](../%s) | %s | %s |\n", $2, $10, esc($9), $1 }'
 }
 
 gen_sprint_table() { # <sprint id>: its items, ID order, links relative to sprints/
-  keyed_records | sort -t "$TAB" -k2,2 | cut -f3- | awk -F'\t' -v s="$1" '
+  keyed_records | sort -t "$TAB" -k2,2 | cut -f3- | awk -F'\t' -v s="$1" "$AWK_ESC"'
     BEGIN { print "| ID | Title | Size | Status |"; print "|---|---|---|---|" }
-    $15 == s { printf "| [%s](../%s) | %s | %s | %s |\n", $2, $10, $9, $6, $7 }'
+    $15 == s { printf "| [%s](../%s) | %s | %s | %s |\n", $2, $10, esc($9), $6, $7 }'
 }
 
 gen_sprints() {
   echo; echo '## Sprints'; echo
   if [[ -z "$(sprint_rows)" ]]; then echo 'None.'; return; fi
   echo '| Sprint | Title | Status | Start | End | Items |'; echo '|---|---|---|---|---|---|'
-  { sprint_rows | sed 's/^/S\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' '
+  { sprint_rows | sed 's/^/S\t/'; records | sed 's/^/R\t/'; } | awk -F'\t' "$AWK_ESC"'
     $1 == "S" { id[++n] = $2; row[$2] = $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7; next }
     $16 != "" { total[$16]++; if ($2 != "completed") open[$16]++ }
     END {
       for (i = 1; i <= n; i++) {
         split(row[id[i]], c, "\t")
-        printf "%06d\t| [%s](%s) | %s | %s | %s | %s | %d/%d |\n", substr(id[i], 2) + 0, id[i], c[5], c[1], c[2], c[3], c[4], open[id[i]], total[id[i]]
+        printf "%06d\t| [%s](%s) | %s | %s | %s | %s | %d/%d |\n", substr(id[i], 2) + 0, id[i], c[5], esc(c[1]), c[2], c[3], c[4], open[id[i]], total[id[i]]
       }
     }' | sort -n | cut -f2-
 }

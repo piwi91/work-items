@@ -428,6 +428,20 @@ mk backlog E1-F1 F P1 S; mk backlog E1-F2 F P3 XL; setfield backlog E1-F2 sprint
 sprint S1 planned
 [ "$(wi next | awk '{print $1}' | tr '\n' ' ')" = "E1-F1 E1-F2 " ]; check "next: no active sprint keeps normal order" $?
 
+# pipes in titles must not break table rows
+new_tracker; sprint S1 active s1-x
+sed -i.bak 's/^title: .*/title: X | Y/' "$T/r/sprints/s1-x.md"
+printf -- '---\nstatus: active\n---\n<!-- wi:items -->\n<!-- /wi:items -->\n' > "$T/r/design/a.md"
+mk backlog E1-F1 F P3 S "" "A | B"; setfield backlog E1-F1 sprint S1; setfield backlog E1-F1 design design/a.md
+mk in-progress E1-F2 F P3 S "" "C | D"; setfield in-progress E1-F2 status needs-attention
+wi index >/dev/null; idx="$T/r/INDEX.md"
+grep -qF '| A \| B |' "$idx"; check "pipe: epic table escapes title" $?
+grep -qF '| C \| D |' "$idx"; check "pipe: Needs you table escapes title" $?
+grep -qF '| X \| Y |' "$idx"; check "pipe: Sprints row escapes sprint title" $?
+grep -qF '| A \| B |' "$T/r/design/a.md"; check "pipe: design block escapes title" $?
+grep -qF '| A \| B |' "$T/r/sprints/s1-x.md"; check "pipe: sprint block escapes title" $?
+wi next | grep -qF 'A | B'; check "pipe: next prints title raw" $?
+
 # nextid S
 new_tracker
 [ "$(wi nextid S)" = S1 ]; check "nextid S: S1 when none" $?

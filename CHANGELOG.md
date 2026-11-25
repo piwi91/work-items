@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1
+- `wi index` escapes `|` in titles, so a pipe in a title no longer breaks the generated tables.
+
 ## 0.4.0
 - New `/work-items:sprint` (`plan`, `start`, `close`, `status`): optional sprints with a goal, dates and an optional demo, in `sprints/`.
 - Items join a sprint with `sprint: S<n>`. `wi next` ranks active-sprint items first; `wi index` lists sprints; `wi validate` checks them; `wi nextid S`.
