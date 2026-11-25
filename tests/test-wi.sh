@@ -442,6 +442,38 @@ grep -qF '| A \| B |' "$T/r/design/a.md"; check "pipe: design block escapes titl
 grep -qF '| A \| B |' "$T/r/sprints/s1-x.md"; check "pipe: sprint block escapes title" $?
 wi next | grep -qF 'A | B'; check "pipe: next prints title raw" $?
 
+# sprint Goal
+new_tracker; sprint S1 planned; sed -i.bak '/^## Goal/,/^g$/d' "$T/r/sprints/s1-x.md"; wi index >/dev/null
+validate_fails_with "validate: sprint without ## Goal heading" "s1-x.md: missing ## Goal"
+new_tracker; sprint S1 planned; sed -i.bak 's/^g$//' "$T/r/sprints/s1-x.md"; wi index >/dev/null
+validate_fails_with "validate: empty ## Goal" "s1-x.md: missing ## Goal"
+new_tracker; sprint S1 closed; sed -i.bak 's/^g$/ /' "$T/r/sprints/s1-x.md"; printf '## Review\nr\n' >> "$T/r/sprints/s1-x.md"; wi index >/dev/null
+validate_fails_with "validate: blank-only Goal fails for closed sprint too" "s1-x.md: missing ## Goal"
+new_tracker; sprint S1 planned; printf -- '---\nid: S1\ntitle: t\nstatus: planned\nstart: 2026-01-05\nend: 2026-01-16\n---\n## Goal\n' > "$T/r/sprints/s1-x.md"; wi index >/dev/null
+validate_fails_with "validate: Goal at end of file with no text" "s1-x.md: missing ## Goal"
+new_tracker; sprint S1 planned; wi index >/dev/null
+wi validate | grep -qx ok; check "validate: sprint with Goal text ok" $?
+
+# sprint edge cases
+new_tracker; sprint S2 planned; sprint S10 planned; wi index >/dev/null
+[ "$(grep -o '^| \[S[0-9]*\]' "$T/r/INDEX.md" | tr '\n' ' ')" = "| [S2] | [S10] " ]; check "index: S2 listed before S10" $?
+[ "$(wi nextid S)" = S11 ]; check "nextid S: S11 after S10" $?
+new_tracker; sprint S1 review; wi index >/dev/null
+wi validate | grep -qx ok; check "validate: review sprint needs no ## Review yet" $?
+new_tracker; sprint S1 active; sprint S2 review; wi index >/dev/null
+wi validate | grep -qx ok; check "validate: active plus review sprint ok" $?
+new_tracker; mkdir "$T/r/sprints"; printf '# no frontmatter\n' > "$T/r/sprints/s1-x.md"
+out="$(wi validate)"; rc=$?
+[ $rc -eq 1 ] && echo "$out" | grep -qF 's1-x.md: bad sprint id'; check "validate: sprint without frontmatter fails" $?
+wi index >/dev/null; check "index: sprint without frontmatter does not crash" $?
+new_tracker; sprint S1 closed; printf '## Review\nr\n' >> "$T/r/sprints/s1-x.md"
+mk completed E1-F1 F P3 S; setfield completed E1-F1 sprint S1
+mk completed E1-F2 F P3 S; setfield completed E1-F2 sprint S1; setfield completed E1-F2 status dropped
+wi index >/dev/null
+wi validate | grep -qx ok; check "validate: closed sprint with completed and dropped items ok" $?
+sed -n '/wi:items -->/,/\/wi:items/p' "$T/r/sprints/s1-x.md" | grep -cE '^\| \[E1-F[12]\]' | grep -qx 2; check "closed sprint block lists completed and dropped" $?
+grep -qF '| [S1](sprints/s1-x.md) | Sprint S1 | closed | 2026-01-05 | 2026-01-16 | 0/2 |' "$T/r/INDEX.md"; check "index: closed sprint row counts both items, none open" $?
+
 # nextid S
 new_tracker
 [ "$(wi nextid S)" = S1 ]; check "nextid S: S1 when none" $?

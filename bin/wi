@@ -41,16 +41,18 @@ epic_focus() { # "E<n> now|later" lines from EPICS.md
   awk '/^## E[0-9]+ / { e = $2 } e && /^focus:/ { print e, $2 }' EPICS.md
 }
 
-# One tab-separated row per sprint file: id title status start end file has_review
+# One tab-separated row per sprint file: id title status start end file has_review has_goal
 sprint_rows() {
   local f
   for f in sprints/*.md; do
     [[ -e "$f" ]] || continue
     awk -v file="$f" '
       /^## Review/ { review = 1 }
+      /^## / { in_goal = ($0 ~ /^## Goal/); next }
+      in_goal && /[^ \t]/ { goal = 1 }
       /^---$/ { n++; if (n == 2) fmdone = 1; next }
       n == 1 && !fmdone { k = $0; sub(/:.*/, "", k); v = $0; sub(/^[^:]*:[ ]*/, "", v); sub(/[ \t]+#.*/, "", v); fm[k] = v }
-      END { printf "%s\t%s\t%s\t%s\t%s\t%s\t%d\n", fm["id"], fm["title"], fm["status"], fm["start"], fm["end"], file, review }' "$f"
+      END { printf "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\n", fm["id"], fm["title"], fm["status"], fm["start"], fm["end"], file, review, goal+0 }' "$f"
   done
 }
 
@@ -301,6 +303,7 @@ validate_sprints() { # item sprint refs always; sprint file rules only with spri
       if ($6 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) bad_(file ": bad end " $6)
       if ($4 == "active" && ++active > 1) bad_(file ": more than one active sprint")
       if ($4 == "closed" && $8 != 1) bad_(file ": closed sprint needs a ## Review section")
+      if ($9 != 1) bad_(file ": missing ## Goal")
       next
     }
     $16 != "" {

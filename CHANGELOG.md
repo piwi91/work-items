@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.2
+- `wi validate` requires a non-empty `## Goal` in every sprint file.
+
 ## 0.4.1
 - `wi index` escapes `|` in titles, so a pipe in a title no longer breaks the generated tables.
 
